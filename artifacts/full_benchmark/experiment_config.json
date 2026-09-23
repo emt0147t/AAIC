@@ -1,0 +1,69 @@
+{
+  "task": "Vietnamese Automatic Speech Recognition (ASR)",
+  "primary_model": "vinai/PhoWhisper-tiny",
+  "total_parameters": 37760640,
+  "trainable_parameters": 37184640,
+  "fallback_model": "vinai/PhoWhisper-base",
+  "training_data": {
+    "datasets": [
+      "VIVOS train",
+      "ViMD train"
+    ],
+    "verified_utterances": 26683,
+    "verified_hours": 95.37,
+    "quality": "Gold (human transcripts)"
+  },
+  "validation_data": {
+    "dataset": "ViMD valid",
+    "verified_utterances": 1900,
+    "verified_hours": 10.26,
+    "speakers": 1320,
+    "speaker_disjoint": true
+  },
+  "primary_test_data": {
+    "dataset": "ViMD test",
+    "verified_utterances": 2026,
+    "verified_hours": 10.87,
+    "speakers": 1344,
+    "contamination": "NO_EVIDENCE_FOUND IN EXAMINED MODEL DOCUMENTATION",
+    "status": "FROZEN_READ_ONLY"
+  },
+  "secondary_reference_data": {
+    "dataset": "VIVOS test",
+    "verified_utterances": 760,
+    "verified_hours": 0.75,
+    "contamination": "CONFIRMED_CONTAMINATED",
+    "status": "REFERENCE_ONLY"
+  },
+  "audio_pipeline": {
+    "target_sample_rate": 16000,
+    "channels": "mono",
+    "format": "float32",
+    "vivos_native": 16000,
+    "vimd_native": 44100,
+    "vimd_resampling": "44.1 kHz -> 16.0 kHz via librosa.resample",
+    "feature_extractor": "80-channel log-mel spectrogram [80, 3000]"
+  },
+  "optimization": {
+    "optimizer": "AdamW",
+    "learning_rate": 0.0001,
+    "weight_decay": 0.01,
+    "gradient_clipping": 1.0,
+    "effective_batch_size": 32,
+    "micro_batch_size": 2,
+    "gradient_accumulation_steps": 16,
+    "max_epochs": 5,
+    "early_stopping_patience": 2,
+    "validation_frequency": "once per epoch",
+    "checkpoint_selection_metric": "validation_wer",
+    "seed": 42
+  },
+  "evaluation": {
+    "normalization": "deterministic (NFC, lowercased, punctuation stripped, whitespace collapsed)",
+    "identical_norm_on_ref_and_hyp": true,
+    "metrics": [
+      "WER",
+      "CER"
+    ]
+  }
+}

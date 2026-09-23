@@ -1,0 +1,70 @@
+{
+  "gate": "GATE 6 — TINY ASR ENGINEERING PILOT",
+  "benchmark_claim": "ENGINEERING PILOT — NOT FOR FINAL BENCHMARK",
+  "environment": {
+    "python_version": "3.14.0",
+    "torch_version": "2.10.0+cpu",
+    "device": "cpu",
+    "cuda_available": false,
+    "gpu_used": false
+  },
+  "model": {
+    "name": "vinai/PhoWhisper-tiny",
+    "architecture": "WhisperForConditionalGeneration",
+    "total_parameters": 37760640,
+    "trainable_parameters": 37184640,
+    "language": "vi",
+    "task": "transcribe"
+  },
+  "data_composition": {
+    "train_samples_total": 100,
+    "train_vivos_count": 50,
+    "train_vimd_count": 50,
+    "val_samples_total": 20,
+    "val_source": "ViMD valid split",
+    "test_touched": false,
+    "seed": 42
+  },
+  "audio_pipeline": {
+    "feature_format": "80-channel log-mel spectrogram",
+    "sample_rate_target": 16000,
+    "vivos_orig_sr": 16000,
+    "vimd_orig_sr": 44100,
+    "vimd_resampled": true,
+    "resampling_method": "librosa.resample",
+    "tensor_shape": [
+      80,
+      3000
+    ]
+  },
+  "transcript_pipeline": {
+    "normalization": "NFC Unicode, lowercasing, punctuation stripping, whitespace collapse",
+    "raw_preserved": true
+  },
+  "training_run": {
+    "epochs": 1,
+    "batch_size": 2,
+    "gradient_accumulation_steps": 2,
+    "effective_batch_size": 4,
+    "learning_rate": 0.0001,
+    "optimizer": "AdamW",
+    "weight_decay": 0.01,
+    "runtime_seconds": 68.26,
+    "final_loss": 0.3679,
+    "loss_finite": true,
+    "oom_encountered": false
+  },
+  "checkpoint": {
+    "saved_successfully": true,
+    "reloaded_successfully": true,
+    "path": "d:\\Vietnamese_ASR_Week6\\artifacts\\pilot\\checkpoint"
+  },
+  "validation_sanity_check": {
+    "samples_evaluated": 5,
+    "all_non_empty": true,
+    "all_vietnamese": true,
+    "mean_pilot_wer": 0.64,
+    "mean_pilot_cer": 0.4971,
+    "metric_label": "ENGINEERING PILOT — NOT FOR FINAL BENCHMARK"
+  }
+}

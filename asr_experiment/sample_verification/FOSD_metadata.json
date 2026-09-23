@@ -1,0 +1,14 @@
+{
+  "dataset": "FOSD",
+  "description": "25,921 recorded Vietnamese speeches with transcripts",
+  "audio_format": "MP3",
+  "transcript_format": "TXT (UTF-8)",
+  "license": "FPT Public License (permissive, similar to MIT)",
+  "copyright": "Copyright 2018 FPT Corporation",
+  "subsets": 3,
+  "total_hours": "~30h",
+  "speaker_metadata": "Limited/inconsistent",
+  "official_splits": "None",
+  "source": "Mendeley Data (k9sxg2twv4/4)",
+  "note": "Audio is MP3 not WAV \u2014 needs conversion to 16kHz WAV for ASR"
+}

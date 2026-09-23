@@ -1,0 +1,1309 @@
+
+===== PAGE 1 =====
+HỌC VIỆN CÔNG NGHỆBƯU CHÍNH VIỄN THÔNG
+KHOA TRÍ TUỆNHÂN TẠO
+ỨNG DỤNG CỦA MM,RMM
+VÀ LID TRONG TIẾNG VIỆT
+Hà Nội, 09-2026
+
+===== PAGE 2 =====
+Mục lục
+1
+Giới thiệu
+4
+1.1
+Bối cảnh nghiên cứu
+. . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+4
+1.2
+Bài toán nghiên cứu
+. . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+5
+1.3
+Phạm vi nghiên cứu
+. . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+5
+1.4
+Cấu trúc báo cáo . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+6
+2
+Nghiên cứu liên quan
+7
+2.1
+Học bán giám sát cho audio . . . . . . . . . . . . . . . . . . . . . . . . . .
+7
+2.2
+Ứng dụng của MixMatch và ReMixMatch
+. . . . . . . . . . . . . . . . . .
+8
+2.2.1
+Environmental sound classification
+. . . . . . . . . . . . . . . . . .
+8
+2.2.2
+Speech command recognition
+. . . . . . . . . . . . . . . . . . . . .
+8
+2.2.3
+Nhận xét
+. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+8
+2.3
+Language Identification trong speech . . . . . . . . . . . . . . . . . . . . .
+8
+2.4
+Multilingual speech và foundation models . . . . . . . . . . . . . . . . . . .
+9
+2.5
+Nhận dạng phương ngữ. . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+9
+2.6
+Khoảng trống nghiên cứu . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+9
+3
+Tiếng nói tiếng Việt
+11
+3.1
+Đặc điểm của Vietnamese Speech . . . . . . . . . . . . . . . . . . . . . . .
+11
+3.2
+Các nguồn dữliệu tiếng Việt . . . . . . . . . . . . . . . . . . . . . . . . . .
+12
+3.3
+Các mô hình tiếng nói tiếng Việt
+. . . . . . . . . . . . . . . . . . . . . . .
+13
+3.3.1
+wav2vec 2.0 và XLS-R . . . . . . . . . . . . . . . . . . . . . . . . .
+13
+3.3.2
+PhoWhisper . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+13
+3.3.3
+Các mô hình Vietnamese ASR quy mô lớn . . . . . . . . . . . . . .
+13
+1
+
+===== PAGE 3 =====
+3.3.4
+Speech hội thoại
+. . . . . . . . . . . . . . . . . . . . . . . . . . . .
+13
+3.4
+Semi-Supervised Learning trong Vietnamese Speech . . . . . . . . . . . . .
+14
+3.4.1
+Self-supervised learning . . . . . . . . . . . . . . . . . . . . . . . . .
+14
+3.4.2
+Semi-supervised learning . . . . . . . . . . . . . . . . . . . . . . . .
+14
+3.5
+Research Gap . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+14
+4
+Dữliệu thực nghiệm
+15
+4.1
+Mục tiêu xây dựng dataset . . . . . . . . . . . . . . . . . . . . . . . . . . .
+15
+4.2
+Nguồn dữliệu . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+15
+4.2.1
+VIVOS . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+15
+4.2.2
+VoxLingua107 . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+15
+4.3
+Thiết kếdataset cuối cùng . . . . . . . . . . . . . . . . . . . . . . . . . . .
+16
+4.4
+Kiểm soát data leakage . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+16
+4.5
+Tiền xửlý audio
+. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+17
+4.6
+Log-Mel Spectrogram . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+17
+4.7
+Labeled và Unlabeled data . . . . . . . . . . . . . . . . . . . . . . . . . . .
+18
+4.8
+Nguyên tắc so sánh . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+18
+5
+Phương pháp
+19
+5.1
+Pipeline chung . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+19
+5.2
+CNN Backbone . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+19
+5.3
+Baseline Supervised . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+20
+5.4
+Audio Augmentation . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+20
+5.5
+MixMatch . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+20
+5.6
+ReMixMatch
+. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+21
+5.7
+Training Configuration . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+22
+5.8
+Checkpoint Selection . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+22
+5.9
+Thiết kếso sánh công bằng
+. . . . . . . . . . . . . . . . . . . . . . . . . .
+23
+6
+Thực nghiệm
+24
+6.1
+Mục tiêu . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+24
+6.2
+Môi trường thực nghiệm . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+24
+2
+
+===== PAGE 4 =====
+6.3
+Các thí nghiệm chính . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+25
+6.4
+Metrics . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+25
+6.5
+Label Efficiency . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+26
+6.6
+Ablation Study . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+26
+6.7
+Phân tích lỗi . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+26
+6.8
+Chi phí tính toán . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+27
+6.9
+Quy trình thực nghiệm . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+27
+7
+Kết quả
+29
+7.1
+Kết quảSupervised-100
+. . . . . . . . . . . . . . . . . . . . . . . . . . . .
+29
+7.2
+Kết quảMixMatch . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+29
+7.3
+Kết quảReMixMatch . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+30
+7.4
+So sánh tổng hợp . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+30
+7.5
+Confusion Matrix . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+30
+7.6
+Label Efficiency Curve . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+30
+8
+Thảo luận
+31
+8.1
+Ảnh hưởng của label ratio . . . . . . . . . . . . . . . . . . . . . . . . . . .
+31
+8.2
+MixMatch so với Supervised . . . . . . . . . . . . . . . . . . . . . . . . . .
+31
+8.3
+ReMixMatch so với MixMatch . . . . . . . . . . . . . . . . . . . . . . . . .
+31
+8.4
+Ảnh hưởng của augmentation . . . . . . . . . . . . . . . . . . . . . . . . .
+31
+8.5
+Giới hạn . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+32
+9
+Kết luận
+33
+3
+
+===== PAGE 5 =====
+Chương 1
+Giới thiệu
+1.1
+Bối cảnh nghiên cứu
+Nhận dạng và xửlý tiếng nói đã trởthành một thành phần quan trọng trong nhiều
+hệthống trí tuệnhân tạo, bao gồm nhận dạng tiếng nói tựđộng (Automatic Speech
+Recognition — ASR), trợlý giọng nói, phân tích hội thoại, tìm kiếm nội dung đa phương
+tiện, tổng hợp tiếng nói, nhận dạng người nói và nhận dạng ngôn ngữ. Sựphát triển của
+học sâu và các mô hình biểu diễn tiếng nói quy mô lớn đã làm tăng đáng kểhiệu năng
+của các hệthống này.
+Tuy nhiên, nhiều bài toán speech vẫn phụthuộc vào dữliệu được gán nhãn. Tùy
+theo tác vụ, dữliệu có nhãn có thểbao gồm nhãn ngôn ngữ, nhãn lớp, thông tin người
+nói hoặc bản chép lời. Việc thu thập và chú thích dữliệu ởquy mô lớn đòi hỏi thời gian,
+nhân lực và chi phí đáng kể. Vấn đềnày càng rõ trong các ngôn ngữhoặc domain có
+nguồn tài nguyên hạn chế.
+Trong bối cảnh đó, học bán giám sát (Semi-Supervised Learning — SSL) là một
+hướng tiếp cận có ý nghĩa thực tiễn. Thay vì chỉsửdụng dữliệu có nhãn, SSL kết hợp
+dữliệu có nhãn với dữliệu chưa gán nhãn nhằm tăng hiệu quảsửdụng dữliệu.
+Một trong những hướng SSL nổi bật là MixMatch. Phương pháp này kết hợp pseudo-
+labeling, consistency regularization, sharpening và MixUp trong một framework thống
+nhất. ReMixMatch tiếp tục mởrộng MixMatch với distribution alignment và augmenta-
+tion anchoring.
+Song song với SSL, Nhận dạng Ngôn ngữTiếng nói (Language Identification —
+LID) giải quyết một bài toán khác: xác định ngôn ngữxuất hiện trong một đoạn speech.
+Trong một hệthống đa ngôn ngữ, LID có thểđược sửdụng như lớp routing trước các mô
+hình ASR, dịch tiếng nói hoặc các mô hình xửlý ngôn ngữchuyên biệt.
+Vì vậy, một pipeline tổng quát có thểđược mô tảnhư:
+4
+
+===== PAGE 6 =====
+Audio →LID →Language-specific data →SSL →Speech model.
+Báo cáo này tiếp tục từnền tảng nghiên cứu trước vềMixMatch, ReMixMatch và
+LID, nhưng chuyển trọng tâm sang khảnăng áp dụng các phương pháp này trong bối
+cảnh tiếng nói tiếng Việt.
+1.2
+Bài toán nghiên cứu
+Nghiên cứu tập trung vào bài toán nhận dạng ngôn ngữtiếng nói nhịphân. Với một
+đoạn audio đầu vào x, mô hình dựđoán:
+y ∈{0, 1},
+trong đó:
+y =
+⎧
+⎨
+⎩
+1,
+Vietnamese,
+0,
+Non-Vietnamese.
+Nguồn dữliệu tiếng Việt là VIVOS. Dữliệu không phải tiếng Việt được lấy từmột
+tập con của VoxLingua107 gồm sáu ngôn ngữ: English, Thai, Indonesian, Malay, Japanese
+và Chinese.
+Mục tiêu chính không phải xây dựng một hệthống multilingual LID với hàng trăm
+ngôn ngữ, mà kiểm tra một câu hỏi cụthể:
+Khi lượng dữliệu có nhãn bịgiới hạn, liệu dữliệu speech chưa gán nhãn có thể
+giúp cải thiện mô hình Vietnamese LID thông qua MixMatch và ReMixMatch
+hay không?
+1.3
+Phạm vi nghiên cứu
+Nghiên cứu được giới hạn trong bài toán phân loại nhịphân Vietnamese và Non-
+Vietnamese.
+Các benchmark quốc tếđược sửdụng trong Related Work nhằm cung cấp bối cảnh
+nghiên cứu, trong khi thực nghiệm chính sửdụng VIVOS và tập con VoxLingua107.
+Mục tiêu không phải cạnh tranh trực tiếp với các foundation model ASR hay các
+hệthống Vietnamese ASR quy mô hàng nghìn giờ. Trọng tâm là đánh giá khảnăng khai
+thác unlabeled speech trong một setting có kiểm soát.
+5
+
+===== PAGE 7 =====
+1.4
+Cấu trúc báo cáo
+Báo cáo được tổchức như sau:
+Chương 2 — Nghiên cứu liên quan trình bày các nghiên cứu vềSSL cho audio,
+LID và multilingual speech.
+Chương 3 — Tiếng nói tiếng Việt khảo sát dataset, mô hình và ứng dụng trong
+Vietnamese Speech.
+Chương 4 — Dữliệu thực nghiệm trình bày dataset, split, preprocessing và
+cách xây dựng labeled/unlabeled data.
+Chương 5 — Phương pháp trình bày backbone, supervised baseline, MixMatch
+và ReMixMatch.
+Chương 6 — Thực nghiệm mô tảcấu hình chạy, các thí nghiệm, metrics và
+protocol đánh giá.
+Chương 7 — Kết quảtrình bày kết quảđịnh lượng sau khi thực nghiệm hoàn
+tất.
+Chương 8 — Thảo luận phân tích các kết quảquan sát được và các giới hạn.
+Chương 9 — Kết luận tổng kết và trảlời các câu hỏi nghiên cứu.
+6
+
+===== PAGE 8 =====
+Chương 2
+Nghiên cứu liên quan
+2.1
+Học bán giám sát cho audio
+Trong supervised learning, mô hình được huấn luyện từcác cặp:
+L = {(xi, yi)}Nl
+i=1.
+Trong semi-supervised learning, một tập dữliệu chưa gán nhãn được bổsung:
+U = {uj}Nu
+j=1.
+Do đó:
+D = L ∪U,
+|L| ≪|U|
+trong setting low-label.
+Đối với audio, Cances, Labbé và Pellegrini đã so sánh MixMatch, ReMixMatch,
+FixMatch, Mean Teacher và Deep Co-Training trên ESC-10, UrbanSound8K và Google
+Speech Commands. Các thí nghiệm sửdụng Wide-ResNet-28-2, với 10% dữliệu có nhãn
+và 90% dữliệu chưa gán nhãn [1].
+Trên UrbanSound8K, MixMatch đạt error rate 18.02%, so với 23.29% của hệthống
+supervised sửdụng toàn bộdữliệu có nhãn. Trên Google Speech Commands, MixMatch
+đạt 3.25% error rate, thấp hơn mức 4.94% của baseline supervised tương ứng. ReMixMatch
+đạt kết quảtốt nhất trên ESC-10 với error rate 12.00% [1].
+Các kết quảnày cho thấy unlabeled audio có thểcung cấp thông tin hữu ích trong
+các bài toán classification, nhưng đồng thời cũng cho thấy hiệu quảphụthuộc vào dataset
+và chiến lược augmentation.
+7
+
+===== PAGE 9 =====
+2.2
+Ứng dụng của MixMatch và ReMixMatch
+2.2.1
+Environmental sound classification
+Trong environmental sound classification, mô hình xác định lớp của các âm thanh
+như phương tiện giao thông, tiếng động cơ hoặc tiếng động môi trường.
+UrbanSound8K là ví dụtiêu biểu trong nghiên cứu của Cances và cộng sự. Kết quả
+trên benchmark này cho thấy MixMatch có thểđạt hiệu quảcạnh tranh khi chỉcó 10%
+dữliệu được gán nhãn [1].
+2.2.2
+Speech command recognition
+Google Speech Commands tập trung vào speech command ngắn. Đây là bài toán
+gần với các ứng dụng như wake-word detection và voice command classification.
+Kết quảcủa Cances và cộng sựcho thấy MixMatch đạt 3.25% error rate với 10%
+labeled data trên benchmark này [1].
+2.2.3
+Nhận xét
+Những kết quảtrên cung cấp động lực cho việc nghiên cứu SSL trong miền speech.
+Tuy nhiên, kết quảtrên audio classification không thểđược chuyển trực tiếp sang Viet-
+namese LID, bởi domain, augmentation, distribution và đặc tính ngôn ngữcó thểkhác
+nhau.
+2.3
+Language Identification trong speech
+LID nhằm xác định ngôn ngữcủa một đoạn speech:
+ˆy = arg max
+c∈C P(c | x).
+Trong các hệthống multilingual speech, LID có thểđóng vai trò routing:
+Audio →LID →Language routing →ASR / Translation / Analysis.
+Một ứng dụng quan trọng của LID là lọc dữliệu speech từInternet. Một pipeline
+có thểgồm:
+8
+
+===== PAGE 10 =====
+Web videos →Speech detection →Speaker diarization →Language filtering →Speech corpus.
+VoxLingua107 là một ví dụđiển hình. Dataset này có khoảng 6,628 giờspeech trên
+107 ngôn ngữvà được xây dựng chủyếu từcác video YouTube, với language labels được
+suy ra từmetadata và sau đó được post-filtered [2].
+2.4
+Multilingual speech và foundation models
+Một xu hướng quan trọng là học speech representation từlượng lớn unlabeled speech
+trước khi fine-tune cho downstream tasks.
+XLS-R được xây dựng trên wav2vec 2.0 và được huấn luyện trên hơn 436,000 giờ
+speech ở128 ngôn ngữ[3]. Đây là ví dụtiêu biểu của self-supervised learning ởquy mô
+lớn.
+Một bước mởrộng mạnh hơn là Massively Multilingual Speech (MMS). MMS xây
+dựng pretrained models cho 1,406 ngôn ngữ, một ASR model cho 1,107 ngôn ngữvà một
+LID model cho 4,017 ngôn ngữ[4].
+Điểm khác biệt quan trọng giữa hướng này và MixMatch/ReMixMatch là self-
+supervised pretraining tập trung vào học representation tổng quát từlượng lớn unlabeled
+speech, trong khi MixMatch/ReMixMatch khai thác unlabeled data trong quá trình học
+một task cụthể.
+2.5
+Nhận dạng phương ngữ
+Dialect identification là bài toán liên quan trực tiếp đến LID nhưng mục tiêu ởmức
+chi tiết hơn.
+Đối với tiếng Việt, các khác biệt vềpronunciation và acoustic characteristics giữa
+các vùng miền tạo ra một bài toán nghiên cứu riêng.
+ViMD là một ví dụquan trọng. Dataset có 102.56 giờaudio, khoảng 19,000 utter-
+ances và bao phủ63 provincial dialects [5].
+Kết quảcủa nghiên cứu ViMD cho thấy yếu tốđịa lý có liên hệvới đặc trưng dialect
+và việc xửlý speech đa phương ngữvẫn còn nhiều thách thức [5].
+2.6
+Khoảng trống nghiên cứu
+Từcác nghiên cứu trên có thểnhận thấy ba vấn đề.
+9
+
+===== PAGE 11 =====
+Thứnhất, các phương pháp SSL đã cho thấy hiệu quảtrên nhiều benchmark audio,
+nhưng kết quảphụthuộc vào dataset và augmentation [1].
+Thứhai, các hệthống multilingual speech hiện đại đã đạt quy mô rất lớn, nhưng
+chúng thường dựa trên pretrained representations hoặc lượng dữliệu rất lớn [3, 4].
+Thứba, các corpus tiếng Việt cho thấy sựtồn tại đồng thời của dữliệu có nhãn và
+dữliệu chưa gán nhãn ởnhiều domain [6, 7].
+Do đó, vẫn có giá trịkhi xây dựng một thực nghiệm kiểm soát:
+Same dataset + Same backbone + Same preprocessing + Different learning strategy
+nhằm kiểm tra khảnăng khai thác unlabeled speech của MixMatch và ReMixMatch.
+10
+
+===== PAGE 12 =====
+Chương 3
+Tiếng nói tiếng Việt
+3.1
+Đặc điểm của Vietnamese Speech
+Tiếng Việt có hệsinh thái dữliệu speech đang phát triển nhanh, nhưng quy mô và
+độđa dạng giữa các corpus vẫn rất khác nhau.
+Các yếu tốcó thểảnh hưởng đến mô hình bao gồm:
+ khác biệt vềaccent và dialect;
+ khác biệt giữa speech đọc và spontaneous speech;
+ speaker variation;
+ recording condition;
+ domain;
+ tốc độnói và đặc trưng phát âm.
+Những biến thiên này đặc biệt quan trọng đối với SSL, bởi pseudo-label có thểbị
+ảnh hưởng khi unlabeled distribution khác đáng kểlabeled distribution.
+11
+
+===== PAGE 13 =====
+3.2
+Các nguồn dữliệu tiếng Việt
+Dataset
+Quy mô
+Kiểu
+speech
+Đặc điểm
+VIVOS
+15.67 h
+Reading
+12,420 utterances và 65 speak-
+ers
+FOSD
+∼30 h
+Reading
+25,921 utterances
+VLSP2021 ASR
+280 h labeled
++ 400 h unla-
+beled
+General / in-
+domain
+Thiết kếtrực tiếp cho ASR
+trong setting hạn chếtran-
+script
+ViMD
+102.56 h
+Spontaneous
+/
+multi-
+dialect
+Khoảng 19,000 utterances, 63
+provincial dialects
+VietMed
+16 h labeled
++ 2,200 h un-
+labeled
+Medical
+/
+general
+Kết
+hợp
+labeled
+medical
+speech với unlabeled speech
+quy mô lớn
+PhoWhisper
+844 h
+Diverse
+Fine-tuning
+Whisper
+cho
+Vietnamese ASR
+VietSuperSpeech
+267.39 h
+Conversational 52,023 audio-text pairs
+Bảng 3.1: Một sốnguồn dữliệu và mô hình tiêu biểu trong Vietnamese Speech.
+VIVOS có khoảng 15.67 giờspeech, 12,420 utterances và 65 speakers [8]. Cấu trúc
+chính thức gồm 11,660 utterances trong train và 760 utterances trong test [9].
+FOSD có khoảng 30 giờvà 25,921 utterances [10].
+VLSP2021 Task-01 cung cấp khoảng 280 giờtranscribed data và 400 giờuntran-
+scribed in-domain data [6].
+ViMD có 102.56 giờvà gần 19,000 utterances, với 63 provincial dialects [5].
+VietMed gồm 16 giờlabeled medical speech, 1,000 giờunlabeled medical speech và
+1,200 giờgeneral-domain unlabeled speech [7].
+12
+
+===== PAGE 14 =====
+3.3
+Các mô hình tiếng nói tiếng Việt
+3.3.1
+wav2vec 2.0 và XLS-R
+Self-supervised speech representation cho phép mô hình học từunlabeled speech
+trước khi fine-tune.
+XLS-R được pretrained trên hơn 436,000 giờdữliệu ở128 ngôn ngữ[3].
+Các mô hình như vậy tạo ra một hướng tiếp cận khác với MixMatch: representation
+learning được thực hiện trước, trong khi MixMatch khai thác unlabeled data trực tiếp
+trong task-specific training.
+3.3.2
+PhoWhisper
+PhoWhisper là phiên bản Whisper được fine-tune cho Vietnamese ASR trên khoảng
+844 giờdữliệu speech đa accent [11].
+Công trình báo cáo năm kích thước mô hình và đánh giá trên nhiều Vietnamese
+ASR benchmarks [11].
+3.3.3
+Các mô hình Vietnamese ASR quy mô lớn
+Bên cạnh các foundation models, một sốmodel công khai mới hơn sửdụng hàng
+nghìn giờVietnamese speech. Ví dụ, model card của Zipformer-30M-RNNT-6000h công
+bốkhoảng 6,000 giờhuấn luyện với khoảng 30 triệu tham số[12].
+Những hệthống này cho thấy một xu hướng quan trọng: data engineering, pseudo-
+labeling và scale dữliệu đang trởthành thành phần quan trọng bên cạnh architecture.
+3.3.4
+Speech hội thoại
+VietSuperSpeech được công bốnăm 2026 với 52,023 audio-text pairs, tổng cộng
+267.39 giờ, tập trung vào conversational Vietnamese speech [13].
+Dataset này hướng đến các speech styles gần với chatbot, customer support, call
+center và hotline.
+13
+
+===== PAGE 15 =====
+3.4
+Semi-Supervised
+Learning
+trong
+Vietnamese
+Speech
+Các corpus như VLSP2021 và VietMed cho thấy sựtồn tại của lượng unlabeled
+speech lớn so với labeled speech [6, 7].
+Hai hướng chính có thểphân biệt:
+3.4.1
+Self-supervised learning
+Unlabeled speech →Representation learning →Fine-tuning.
+3.4.2
+Semi-supervised learning
+Labeled speech + Unlabeled speech →Task-specific model.
+MixMatch và ReMixMatch thuộc nhóm thứhai.
+3.5
+Research Gap
+Trong bối cảnh tiếng Việt, các foundation model và large-scale ASR model ngày
+càng mạnh. Tuy nhiên, điều này không loại bỏcâu hỏi vềlabel efficiency.
+Báo cáo này do đó tập trung vào một setting nhỏhơn và có kiểm soát:
+Same dataset + Same backbone + Same preprocessing + Same evaluation
+nhưng thay đổi learning strategy giữa Supervised, MixMatch và ReMixMatch.
+14
+
+===== PAGE 16 =====
+Chương 4
+Dữliệu thực nghiệm
+4.1
+Mục tiêu xây dựng dataset
+Mục tiêu của dataset là xây dựng bài toán Vietnamese vs. Non-Vietnamese speech
+classification dưới điều kiện có thểkiểm soát tỷlệlabeled/unlabeled.
+y =
+⎧
+⎨
+⎩
+1,
+Vietnamese,
+0,
+Non-Vietnamese.
+4.2
+Nguồn dữliệu
+4.2.1
+VIVOS
+VIVOS được sửdụng làm nguồn Vietnamese speech. Dataset có 12,420 utterances,
+gồm 11,660 utterances trong train và 760 utterances trong test [8].
+Trong nghiên cứu này, tập test chính thức gồm 760 mẫu được giữnguyên và chỉ
+được dùng cho đánh giá cuối cùng.
+Transcript không được sửdụng làm input cho classifier.
+4.2.2
+VoxLingua107
+Dữliệu Non-Vietnamese được lấy từsáu ngôn ngữtrong VoxLingua107:
+15
+
+===== PAGE 17 =====
+Language
+Train
+English
+1000
+Thai
+1000
+Indonesian
+1000
+Malay
+1000
+Japanese
+1000
+Chinese
+1000
+Bảng 4.1: Phân bốNon-Vietnamese trong training set.
+VoxLingua107 là một corpus spoken language recognition gồm khoảng 6,628 giờ
+speech trên 107 ngôn ngữ[2].
+Trong thực nghiệm này, chỉsáu ngôn ngữđược lựa chọn đểkiểm soát chi phí và
+kích thước dataset.
+4.3
+Thiết kếdataset cuối cùng
+Class
+Train
+Validation
+Test
+Vietnamese
+6000
+750
+760
+Non-Vietnamese
+6000
+750
+750
+Total
+12000
+1500
+1510
+Bảng 4.2: Thiết kếcuối cùng của dataset thực nghiệm.
+Tổng dataset gồm:
+12000 + 1500 + 1510 = 15010
+utterances.
+Training và validation được cân bằng giữa hai lớp, trong khi test có 760 Vietnamese
+và 750 Non-Vietnamese do giữnguyên toàn bộVIVOS official test.
+4.4
+Kiểm soát data leakage
+Đối với VIVOS, speaker information được sửdụng đểkiểm soát speaker overlap giữa
+các tập.
+16
+
+===== PAGE 18 =====
+Đối với VoxLingua107, metadata nguồn được sửdụng đểkiểm soát việc một source
+xuất hiện đồng thời ởcác split.
+Mục tiêu là hạn chếtrường hợp mô hình ghi nhớspeaker hoặc nguồn dữliệu thay
+vì học đặc trưng ngôn ngữ.
+4.5
+Tiền xửlý audio
+Toàn bộaudio được chuẩn hóa theo pipeline:
+Raw Audio →Mono →16 kHz →Fixed Duration →Log-Mel Spectrogram.
+Tất cảaudio được resample về16 kHz và chuyển thành mono.
+Thời lượng mục tiêu là 12 giây:
+12 × 16000 = 192000
+samples.
+Audio dài hơn mục tiêu được crop, trong khi audio ngắn hơn được zero-padding.
+Trong training, random crop được sửdụng cho audio dài. Validation và test sửdụng
+center crop đểđảm bảo tính ổn định của đánh giá.
+4.6
+Log-Mel Spectrogram
+Các tham sốđược giữcốđịnh:
+Parameter
+Value
+Sample rate
+16 kHz
+Duration
+12 s
+FFT size
+400
+Window length
+400
+Hop length
+160
+Mel bins
+80
+Bảng 4.3: Cấu hình Log-Mel Spectrogram.
+Với cấu hình này, đầu vào của CNN có kích thước:
+17
+
+===== PAGE 19 =====
+(1, 80, 1201).
+Việc giữrepresentation cốđịnh giữa các phương pháp giúp giảm khảnăng sựkhác
+biệt kết quảđến từpreprocessing thay vì learning strategy.
+4.7
+Labeled và Unlabeled data
+Training set được biểu diễn:
+Dtrain = L ∪U,
+L ∩U = ∅.
+Với label ratio r:
+|L| = r|Dtrain|
+và:
+|U| = (1 −r)|Dtrain|.
+Các mức chính của nghiên cứu là:
+5%,
+10%,
+20%,
+50%,
+100%.
+Trong đó 10% là setting trọng tâm của SSL.
+4.8
+Nguyên tắc so sánh
+Ởcùng một label ratio, Supervised chỉsửdụng L, trong khi MixMatch và ReMix-
+Match sửdụng cảL và U.
+Do đó:
+Supervised-10 ↔MixMatch-10 ↔ReMixMatch-10
+là một phép so sánh trực tiếp.
+18
+
+===== PAGE 20 =====
+Chương 5
+Phương pháp
+5.1
+Pipeline chung
+Tất cảphương pháp sửdụng:
+Audio →Preprocessing →Log-Mel →CNN →Classifier.
+Backbone và preprocessing được giữnguyên.
+5.2
+CNN Backbone
+Mô hình sửdụng một CNN nhỏgồm bốn convolution blocks:
+1 →32 →64 →128 →256.
+Sau ba tầng pooling, đặc trưng được đưa qua:
+Adaptive Average Pooling →256 →128 →2.
+Classifier sửdụng:
+ Linear 256 →128;
+ ReLU;
+ Dropout 0.3;
+ Linear 128 →2.
+19
+
+===== PAGE 21 =====
+Tổng sốtham sốlà:
+421 954 .
+5.3
+Baseline Supervised
+Baseline tối ưu cross-entropy trên dữliệu có nhãn:
+Lsup = −1
+Nl
+Nl
+∑︂
+i=1
+log pθ(yi | xi).
+Supervised-100 sửdụng toàn bộ12,000 training samples.
+Các setting Supervised-50, Supervised-20, Supervised-10 và Supervised-5 chỉsửdụng
+phần labeled tương ứng.
+5.4
+Audio Augmentation
+Các augmentation dùng trong SSL được lựa chọn đểthay đổi acoustic appearance
+nhưng giữnguyên nhãn ngôn ngữ.
+Các nhóm augmentation gồm:
+ time masking;
+ frequency masking;
+ amplitude perturbation;
+ time shifting;
+ noise injection ởmức kiểm soát.
+Mức augmentation phải được cốđịnh trước khi so sánh chính thức giữa MixMatch
+và ReMixMatch.
+5.5
+MixMatch
+Với mẫu chưa gán nhãn u, mô hình sinh nhiều augmented views:
+20
+
+===== PAGE 22 =====
+u1, . . . , uK.
+Prediction trung bình:
+¯q = 1
+K
+K
+∑︂
+k=1
+pθ(y | uk).
+Sharpening được thực hiện bởi:
+qc =
+¯q1/T
+c
+∑︁
+c′ ¯q1/T
+c′
+.
+Pseudo-label q sau đó được sửdụng cùng labeled data trong MixUp:
+x′ = λx1 + (1 −λ)x2,
+y′ = λy1 + (1 −λ)y2.
+Loss tổng quát:
+LMM = Lx + λULu.
+Các hệsốT, λU, sốlượng augmentation và tham sốMixUp phải được ghi theo
+implementation thực tế.
+5.6
+ReMixMatch
+ReMixMatch mởrộng MixMatch bằng các cơ chếbổsung, trong đó báo cáo tập
+trung vào:
+1. distribution alignment;
+2. augmentation anchoring.
+Distribution alignment có dạng tổng quát:
+q′(y | u) ∝q(y | u)ptarget(y)
+pmodel(y).
+Sau đó phân phối được chuẩn hóa và sửdụng trong pseudo-labeling.
+21
+
+===== PAGE 23 =====
+Augmentation anchoring yêu cầu dựđoán giữa các augmented views của cùng một
+mẫu phải duy trì tính nhất quán.
+Do đó:
+ReMixMatch = MixMatch + Distribution Alignment + Augmentation Anchoring.
+Các chi tiết implementation cụthểsẽđược ghi nhận theo notebook thực nghiệm,
+thay vì giảđịnh chúng giống hoàn toàn với mọi implementation ReMixMatch.
+5.7
+Training Configuration
+Cấu hình chung:
+Component
+Value
+Optimizer
+AdamW
+Learning rate
+1 × 10−3
+Weight decay
+1 × 10−4
+Loss
+Cross-Entropy
+Scheduler
+ReduceLROnPlateau
+Scheduler factor
+0.5
+Scheduler patience
+3
+Gradient clipping
+5
+Maximum epochs
+100
+Early stopping
+10 epochs
+Batch size
+16
+Random seed
+42
+AMP
+Enabled on CUDA
+Bảng 5.1: Cấu hình huấn luyện chung.
+5.8
+Checkpoint Selection
+Validation loss được sửdụng đểlựa chọn checkpoint tốt nhất:
+22
+
+===== PAGE 24 =====
+θ∗= arg min
+θ
+Lval.
+Test set không tham gia vào việc lựa chọn checkpoint, điều chỉnh hyperparameter
+hoặc tạo pseudo-label.
+5.9
+Thiết kếso sánh công bằng
+Các yếu tốsau được giữcốđịnh:
+ dataset split;
+ preprocessing;
+ Log-Mel configuration;
+ CNN backbone;
+ batch size;
+ optimizer;
+ learning-rate scheduler;
+ checkpoint criterion;
+ evaluation metrics.
+Yếu tốthay đổi chính là learning strategy và tỷlệlabeled/unlabeled.
+23
+
+===== PAGE 25 =====
+Chương 6
+Thực nghiệm
+6.1
+Mục tiêu
+Thực nghiệm nhằm trảlời ba câu hỏi:
+1. Unlabeled data có giúp cải thiện kết quảtrong điều kiện ít nhãn hay không?
+2. MixMatch có tốt hơn supervised baseline ởcùng label ratio hay không?
+3. ReMixMatch có tốt hơn MixMatch hay không?
+6.2
+Môi trường thực nghiệm
+Thực nghiệm hiện tại được triển khai trong Kaggle Notebook.
+Component
+Setting
+Platform
+Kaggle Notebook
+Framework
+PyTorch
+GPU
+NVIDIA Tesla T4
+Accelerator
+CUDA
+Main device
+cuda:0
+Input
+Log-Mel Spectrogram
+Task
+Binary Vietnamese LID
+Bảng 6.1: Môi trường thực nghiệm.
+Mặc dù môi trường có hai GPU T4, implementation hiện tại sửdụng cuda:0 cho
+mô hình.
+24
+
+===== PAGE 26 =====
+6.3
+Các thí nghiệm chính
+Các cấu hình:
+Experiment
+Labeled
+Unlabeled
+Purpose
+Supervised-100
+100%
+0%
+Fully-supervised reference
+Supervised-50
+50%
+0%
+Limited-label baseline
+MixMatch-50
+50%
+50%
+SSL
+ReMixMatch-50
+50%
+50%
+SSL
+Supervised-20
+20%
+0%
+Limited-label baseline
+MixMatch-20
+20%
+80%
+SSL
+ReMixMatch-20
+20%
+80%
+SSL
+Supervised-10
+10%
+0%
+Low-label baseline
+MixMatch-10
+10%
+90%
+Main SSL setting
+ReMixMatch-10
+10%
+90%
+Main SSL setting
+Supervised-5
+5%
+0%
+Extreme low-label baseline
+MixMatch-5
+5%
+95%
+Extreme low-label SSL
+ReMixMatch-5
+5%
+95%
+Extreme low-label SSL
+Bảng 6.2: Ma trận các thí nghiệm chính.
+Supervised-100 đóng vai trò fully-supervised reference. Các so sánh SSL quan trọng
+nhất nằm tại 10% và 5%.
+6.4
+Metrics
+Accuracy:
+Accuracy = Ncorrect
+Ntotal
+.
+Macro-F1:
+MacroF1 = F1Vietnamese + F1Non−Vietnamese
+2
+.
+Ngoài hai metrics chính, confusion matrix được sửdụng đểphân tích các dạng lỗi.
+25
+
+===== PAGE 27 =====
+6.5
+Label Efficiency
+Hiệu quảsửdụng nhãn được đánh giá thông qua:
+r →Performance(r).
+Một phương pháp có label efficiency tốt hơn nếu đạt performance tương đương hoặc
+cao hơn trong khi sửdụng ít labeled data hơn.
+Một dạng so sánh quan trọng là:
+MixMatch-10
+vs.
+Supervised-50,
+hoặc:
+ReMixMatch-10
+vs.
+Supervised-50.
+Những so sánh này chỉđược thực hiện sau khi các giá trịthực nghiệm được thu
+thập.
+6.6
+Ablation Study
+Ablation chỉđược thực hiện sau khi main experiments hoàn tất.
+Các cấu hình tiềm năng gồm:
+MixMatch →MixMatch without sharpening,
+và:
+ReMixMatch →ReMixMatch without distribution alignment.
+Ablation không phải một phần bắt buộc của main benchmark nếu tài nguyên tính
+toán không đủ.
+6.7
+Phân tích lỗi
+Confusion matrix được sửdụng đểphân tích:
+Vietnamese →Non-Vietnamese
+26
+
+===== PAGE 28 =====
+và:
+Non-Vietnamese →Vietnamese.
+Các lỗi có thểđược phân tích thêm theo duration, source, speaker hoặc language
+source nếu metadata cho phép.
+6.8
+Chi phí tính toán
+Ngoài performance, báo cáo ghi nhận:
+Performance
+vs.
+Label Cost
+vs.
+Training Cost.
+Đây là điểm quan trọng vì SSL có thểgiảm annotation cost nhưng đồng thời tăng
+computational cost.
+6.9
+Quy trình thực nghiệm
+Pipeline cuối cùng:
+27
+
+===== PAGE 29 =====
+VIVOS + VoxLingua107
+↓
+Data inspection
+↓
+Speaker/source leakage control
+↓
+Preprocessing
+↓
+Train / Validation / Test split
+↓
+Labeled / Unlabeled split
+↓
+Supervised
+↓
+MixMatch
+↓
+ReMixMatch
+↓
+Validation-based checkpoint
+↓
+Test evaluation
+↓
+Label-efficiency analysis
+28
+
+===== PAGE 30 =====
+Chương 7
+Kết quả
+7.1
+Kết quảSupervised-100
+Phần này sẽđược điền sau khi experiment hoàn tất.
+Method
+Label Ratio
+Accuracy
+Precision
+Recall
+Macro-F1
+Supervised
+100%
+99.87
+99.87
+99.87
+0.9987
+Supervised
+50%
+98.94
+98.95
+98.94
+0.9894
+Supervised
+20%
+98.74
+98.78
+98.73
+0.9874
+Supervised
+10%
+95.63
+95.63
+95.63
+0.9563
+Supervised
+5%
+93.71
+93.91
+93.69
+0.9370
+Bảng 7.1: Kết quảsupervised baseline.
+7.2
+Kết quảMixMatch
+Label Ratio
+Accuracy
+Precision
+Recall
+Macro-F1
+50%
+94.90
+95.35
+94.87
+0.9489
+20%
+93.97
+94.62
+93.93
+0.9395
+10%
+95.03
+95.13
+95.02
+0.9503
+5%
+93.44
+93.75
+93.42
+0.9343
+Bảng 7.2: Kết quảMixMatch.
+29
+
+===== PAGE 31 =====
+7.3
+Kết quảReMixMatch
+Label Ratio
+Accuracy
+Precision
+Recall
+Macro-F1
+50%
+95.10
+95.54
+95.07
+0.9508
+20%
+95.17
+95.59
+95.13
+0.9515
+10%
+96.16
+96.33
+96.14
+0.9615
+5%
+93.11
+93.60
+93.08
+0.9309
+Bảng 7.3: Kết quảReMixMatch.
+7.4
+So sánh tổng hợp
+Method
+Label Ratio
+Accuracy
+Macro-F1
+Supervised
+10%
+95.63
+0.9563
+MixMatch
+10%
+95.03
+0.9503
+ReMixMatch
+10%
+96.16
+0.9615
+Bảng 7.4: So sánh trực tiếp ởsetting 10% labeled.
+7.5
+Confusion Matrix
+Confusion matrix của từng mô hình sẽđược đưa vào phần này sau khi test evaluation
+hoàn tất.
+7.6
+Label Efficiency Curve
+Kết quảsẽđược biểu diễn dưới dạng:
+x = Label Ratio,
+y = Accuracy hoặc Macro-F1.
+Không diễn giải xu hướng trước khi có kết quảthực tế.
+30
+
+===== PAGE 32 =====
+Chương 8
+Thảo luận
+8.1
+Ảnh hưởng của label ratio
+Phần này sẽphân tích mức suy giảm hoặc cải thiện performance khi label ratio thay
+đổi.
+8.2
+MixMatch so với Supervised
+Phân tích trực tiếp:
+∆MM(r) = PerformanceMM(r) −PerformanceSup(r).
+8.3
+ReMixMatch so với MixMatch
+Phân tích:
+∆RMM(r) = PerformanceRMM(r) −PerformanceMM(r).
+Không giảđịnh ∆RMM(r) > 0 trước khi quan sát kết quả.
+8.4
+Ảnh hưởng của augmentation
+Kết quảđược diễn giải trong mối quan hệvới augmentation, pseudo-label quality
+và distribution mismatch.
+31
+
+===== PAGE 33 =====
+8.5
+Giới hạn
+Các giới hạn chính gồm:
+ dataset vẫn nhỏhơn nhiều so với các multilingual speech foundation datasets;
+ task chỉlà binary LID;
+ Non-Vietnamese chỉgồm sáu ngôn ngữ;
+ backbone CNN nhỏhơn đáng kểso với các speech foundation model hiện đại;
+ computational budget hạn chếsốlượng seed và ablation.
+Do đó, kết quảkhông nên được diễn giải như một kết luận rằng MixMatch hoặc
+ReMixMatch luôn tốt hơn các foundation models.
+32
+
+===== PAGE 34 =====
+Chương 9
+Kết luận
+Báo cáo nghiên cứu khảnăng khai thác dữliệu speech chưa gán nhãn cho bài toán
+Vietnamese Language Identification thông qua MixMatch và ReMixMatch.
+Nghiên cứu được thiết kếtheo nguyên tắc giữcốđịnh dataset split, preprocessing,
+backbone và evaluation protocol, trong khi thay đổi learning strategy và label ratio.
+Các câu hỏi RQ1–RQ4 sẽđược trảlời dựa trên kết quảthực nghiệm cuối cùng. Đặc
+biệt, sựkhác biệt giữa MixMatch và ReMixMatch sẽđược đánh giá trực tiếp ởcác setting
+low-label, trong đó 10% labeled là setting trọng tâm.
+Các hướng phát triển tiếp theo có thểbao gồm:
+ mởrộng sang nhiều ngôn ngữhơn;
+ sửdụng pretrained speech representation;
+ đánh giá nhiều seed;
+ mởrộng sang dialect identification;
+ kết hợp self-supervised pretraining với semi-supervised fine-tuning.
+33
+
+===== PAGE 35 =====
+Tài liệu tham khảo
+[1] L. Cances, E. Labbé, and T. Pellegrini, “Comparison of semi-supervised deep learning
+algorithms for audio classification,” EURASIP Journal on Audio, Speech, and Music
+Processing, vol. 2022, no. 1, p. 23, 2022.
+[2] J. Valk and T. Alum¨ae, “VoxLingua107: A dataset for spoken language recognition,”
+in 2021 IEEE Spoken Language Technology Workshop (SLT), 2021, pp. 652–658.
+[3] A. Babu, C. Wang, A. Tjandra, K. Lakhotia, Q. Xu, N. Goyal, K. Singh, P. von
+Platen, Y. Saraf, J. Pino, A. Baevski, A. Conneau, and M. Auli, “XLS-R: Self-
+supervised cross-lingual speech representation learning at scale,” arXiv preprint
+arXiv:2111.09296, 2021.
+[4] V. Pratap, A. Tjandra, B. Shi, P. Tomasello, A. Babu, S. Kundu, A. Elkahky, Z. Ni,
+A. Vyas, M. Fazel-Zarandi, A. Baevski, Y. Adi, X. Zhang, W.-N. Hsu, A. Con-
+neau, and M. Auli, “Scaling speech technology to 1,000+ languages,” arXiv preprint
+arXiv:2305.13516, 2023.
+[5] D. N. Dinh, K. Le-Duc, H. Ngo et al., “Multi-dialect vietnamese: Task, dataset, base-
+line models,” in Findings of the Association for Computational Linguistics: EMNLP
+2024, 2024.
+[6] VLSP Organizing Committee, “VLSP 2021 shared task: Automatic speech recogni-
+tion,” Vietnamese Language and Speech Processing (VLSP) Workshop Series, 2021.
+[7] K. Le-Duc, “VietMed: A dataset and benchmark for automatic speech recognition of
+vietnamese in the medical domain,” Proceedings of LREC-COLING 2024, pp. 17 365–
+17 370, 2024.
+[8] H.-T. Luong and H.-Q. Vu, “A non-expert Kaldi recipe for Vietnamese speech recog-
+nition system,” in Proceedings of the Third International Workshop on Worldwide
+Language Service Infrastructure and Second Workshop on Open Infrastructures and
+Analysis Frameworks for Human Language Technologies (WLSI/OIAF4HLT2016),
+2016, pp. 51–55.
+34
+
+===== PAGE 36 =====
+[9] AILAB, VNU-HCMUS, “VIVOS: Vietnamese speech corpus,” https://huggingface.
+co/datasets/AILAB-VNUHCM/vivos, 2022, dataset repository page; original corpus
+described in Luong and Vu (2016).
+[10] FPT Technology Research Institute, “FPT open speech dataset (FOSD),” https:
+//data.mendeley.com/datasets/k9sxg2twv4/4, 2020, mendeley Data; original record-
+ings released by FPT Corporation in 2018.
+[11] T.-T. Le, L. T. Nguyen, and D. Q. Nguyen, “PhoWhisper: Automatic speech recog-
+nition for vietnamese,” in The Second Tiny Papers Track at ICLR 2024, 2024.
+[12] T.
+H.
+Nguyen,
+“Zipformer-30M-RNNT-6000h,”
+https://huggingface.co/hynt/
+Zipformer-30M-RNNT-6000h, 2025, hugging Face model card; trained on approx.
+6,000 hours of Vietnamese speech.
+[13] L. Do, T. N. Nguyen, T. Pham, V. Do, H. Nguyen, and C. Nguyen, “VietSu-
+perSpeech: A large-scale vietnamese conversational speech dataset for ASR fine-
+tuning in chatbot, customer support, and call center applications,” arXiv preprint
+arXiv:2603.01894, 2026.
+35

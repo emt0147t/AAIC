@@ -1,0 +1,32 @@
+# Vietnamese ASR Model Configuration
+model:
+  default_model_id: "vinai/PhoWhisper-small"
+  supported_models:
+    - id: "vinai/PhoWhisper-tiny"
+      name: "PhoWhisper Tiny (~39M params)"
+      params: 39000000
+      recommended_for: "Low-resource / fast CPU inference"
+    - id: "vinai/PhoWhisper-base"
+      name: "PhoWhisper Base (~74M params)"
+      params: 74000000
+      recommended_for: "Balanced CPU/GPU inference"
+    - id: "vinai/PhoWhisper-small"
+      name: "PhoWhisper Small (~244M params)"
+      params: 244000000
+      recommended_for: "Standard production benchmark / high accuracy"
+    - id: "vinai/PhoWhisper-medium"
+      name: "PhoWhisper Medium (~769M params)"
+      params: 769000000
+      recommended_for: "High accuracy GPU server"
+
+inference:
+  language: "vi"
+  task: "transcribe"
+  chunk_length_s: 30
+  return_timestamps: false
+  default_decoding:
+    strategy: "greedy" # "greedy" or "beam_search"
+    num_beams: 4
+    default_max_new_tokens: 192
+    temperature: 0.0
+    no_repeat_ngram_size: 3

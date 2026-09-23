@@ -1,0 +1,119 @@
+# Vietnamese ASR Dataset Mixture Configuration
+# Specification for multi-dataset training, evaluation, and provenance governance.
+
+datasets:
+  vivos:
+    name: "VIVOS"
+    hf_repo_id: "thanhduycao/vivos_ng_only"
+    pinned_revision: "b2fbc10431b721dc9b0409b716d56a759d1cf332"
+    provenance: "AILab, VNU-HCM University of Science"
+    quality_tier: "gold"
+    domain: "read_speech"
+    audio_format: "16kHz_mono_flac"
+    sampling_weight: 0.25
+    train_split_name: "train"
+    test_split_name: "test"
+    never_train_on: ["test"]
+    speaker_id_column: "speaker_id"
+    transcript_column: "sentence"
+    license: "CC-BY-SA-4.0"
+    description: "High quality studio read speech dataset recorded by Vietnamese native speakers."
+
+  vimd:
+    name: "ViMD"
+    hf_repo_id: "nguyendv02/ViMD_Dataset"
+    pinned_revision: "3a5b30157034e7eadd5c75fae1a820c6f9383398"
+    provenance: "ViMD Research Team"
+    quality_tier: "gold"
+    domain: "multi_dialect_63_provinces"
+    audio_format: "16kHz_mono_wav"
+    sampling_weight: 0.35
+    train_split_name: "train"
+    val_split_name: "valid"
+    test_split_name: "test"
+    never_train_on: ["test"]
+    speaker_id_column: "speaker_id"
+    province_column: "province"
+    region_column: "region"
+    gender_column: "gender"
+    transcript_column: "text"
+    license: "Research / Academic Use Only"
+    description: "63-province Vietnamese multi-dialect speech dataset (~102.56h)."
+
+  bud500:
+    name: "BUD500"
+    hf_repo_id: "linhtran92/viet_bud500"
+    pinned_revision: "main"
+    provenance: "BUD500 Speech Consortium"
+    quality_tier: "gold"
+    domain: "broadcast_diverse_topics"
+    audio_format: "16kHz_wav"
+    sampling_weight: 0.20
+    train_split_name: "train"
+    val_split_name: "validation"
+    test_split_name: "test"
+    never_train_on: ["test"]
+    speaker_id_column: "speaker_id"
+    transcript_column: "transcription"
+    license: "CC-BY-NC-4.0"
+    description: "500-hour Vietnamese broadcast speech across diverse topics and accents."
+
+  vietmed:
+    name: "VietMed"
+    hf_repo_id: "vietmed/vietmed_asr"
+    pinned_revision: "main"
+    provenance: "Hanoi University of Science and Technology & VinUni"
+    quality_tier: "gold"
+    domain: "medical_teleconsultation"
+    audio_format: "16kHz_wav"
+    sampling_weight: 0.10
+    train_split_name: "train"
+    val_split_name: "dev"
+    test_split_name: "test"
+    never_train_on: ["test"]
+    speaker_id_column: "speaker_id"
+    transcript_column: "transcription"
+    license: "Non-commercial Medical Research"
+    description: "Medical consultation dialogues with clinical terminology and conversational noise."
+
+  vietsuperspeech:
+    name: "VietSuperSpeech"
+    hf_repo_id: "viet_speech/viet_super_speech"
+    pinned_revision: "main"
+    provenance: "Automated YouTube / Podcast Mining Pipeline"
+    quality_tier: "silver_pseudo_labeled"
+    domain: "spontaneous_podcast"
+    audio_format: "16kHz_mp3"
+    sampling_weight: 0.10
+    train_split_name: "train"
+    never_train_on: []
+    never_evaluate_clean_on: true
+    speaker_id_column: "channel_id"
+    transcript_column: "pseudo_transcript"
+    pseudo_labeled_by: "Zipformer-30M"
+    license: "Restricted Web Scraped / Research"
+    description: "Large-scale pseudo-labeled spontaneous podcast speech for pretraining / weak supervision."
+
+  vlsp:
+    name: "VLSP_Restricted"
+    hf_repo_id: "user_provided_local"
+    pinned_revision: "local"
+    provenance: "VLSP Shared Task Consortium"
+    quality_tier: "gold"
+    domain: "broadcast_news"
+    audio_format: "16kHz_wav"
+    sampling_weight: 0.00
+    train_split_name: "train"
+    never_train_on: ["test", "eval"]
+    speaker_id_column: "spk_id"
+    transcript_column: "transcript"
+    license: "VLSP DUA Agreement Required"
+    description: "Official evaluation benchmark data requiring formal data-use agreements."
+
+mixture_strategy:
+  target_total_samples: 10000
+  speaker_disjoint_split: true
+  val_split_ratio: 0.10
+  seed: 42
+  enforce_zero_test_contamination: true
+  exclude_duration_over_seconds: 30.0

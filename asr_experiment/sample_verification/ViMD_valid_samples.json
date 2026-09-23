@@ -1,0 +1,77 @@
+[
+  {
+    "dataset": "ViMD_valid",
+    "idx": 0,
+    "audio_path": "11_0274.wav",
+    "audio_bytes": 2146124,
+    "sampling_rate": "N/A",
+    "transcript_field": "text",
+    "transcript": "Tôi đọc những cái tư liệu đầu tiên về chiến lịch sử của Thập vạn đại Sơn thì cũng qua những các tạp chí lịch sử và nhân chứng ngày xưa. Khi tôi mới là",
+    "transcript_chars": 190,
+    "transcript_words": 44,
+    "speaker_id": "spk_11_0129",
+    "region": "North",
+    "gender": 1.0,
+    "filename": "11_0274.wav",
+    "columns": [
+      "audio",
+      "filename",
+      "gender",
+      "province_code",
+      "province_name",
+      "region",
+      "speakerID",
+      "text"
+    ]
+  },
+  {
+    "dataset": "ViMD_valid",
+    "idx": 1,
+    "audio_path": "11_0275.wav",
+    "audio_bytes": 1242432,
+    "sampling_rate": "N/A",
+    "transcript_field": "text",
+    "transcript": "đã nghe các cụ, ví dụ là ông vũ Xuân Toàn hoặc là bác Lâm Ngọc Thủ kể lại những chuyện về thập vạn Đại sơn.",
+    "transcript_chars": 107,
+    "transcript_words": 26,
+    "speaker_id": "spk_11_0129",
+    "region": "North",
+    "gender": 1.0,
+    "filename": "11_0275.wav",
+    "columns": [
+      "audio",
+      "filename",
+      "gender",
+      "province_code",
+      "province_name",
+      "region",
+      "speakerID",
+      "text"
+    ]
+  },
+  {
+    "dataset": "ViMD_valid",
+    "idx": 2,
+    "audio_path": "11_0276.wav",
+    "audio_bytes": 3148256,
+    "sampling_rate": "N/A",
+    "transcript_field": "text",
+    "transcript": "Sau này thì tôi mới có dịp tìm hiểu thêm các tài liệu khác Ví dụ là những tài liệu về các tướng lĩnh quân đội Và nhà xuất bản quân đội nhân dân cũng đ",
+    "transcript_chars": 196,
+    "transcript_words": 47,
+    "speaker_id": "spk_11_0129",
+    "region": "North",
+    "gender": 1.0,
+    "filename": "11_0276.wav",
+    "columns": [
+      "audio",
+      "filename",
+      "gender",
+      "province_code",
+      "province_name",
+      "region",
+      "speakerID",
+      "text"
+    ]
+  }
+]

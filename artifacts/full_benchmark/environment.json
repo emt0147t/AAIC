@@ -1,0 +1,12 @@
+{
+  "os": "win32",
+  "python_version": "3.14.0",
+  "torch_version": "2.10.0+cpu",
+  "transformers_version": "4.57.6",
+  "cuda_available_in_torch": false,
+  "torch_cuda_version": null,
+  "physical_gpu": "NVIDIA RTX A2000 Laptop GPU",
+  "physical_vram": "4096 MiB",
+  "driver_version": "610.60",
+  "pytorch_accessible_vram_mb": 0
+}

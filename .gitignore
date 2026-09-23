@@ -1,0 +1,48 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Secrets
+.env
+
+# IDE
+.vscode/
+.idea/
+
+# Model/checkpoints
+*.pt
+*.pth
+*.ckpt
+*.bin
+*.safetensors
+
+# Audio
+*.wav
+*.mp3
+*.flac
+*.m4a
+*.ogg
+
+# Large datasets / generated data
+datasets/
+data/
+exports/
+checkpoints/
+outputs/
+logs/
+
+# Archives
+*.zip
+*.tar
+*.tar.gz
+
+# OS
+.DS_Store
+Thumbs.db

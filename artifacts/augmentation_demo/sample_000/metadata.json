@@ -1,0 +1,158 @@
+{
+  "sample_id": "sample_000",
+  "source_dataset": "ViMD (nguyendv02/ViMD_Dataset, test split)",
+  "source_path": "11_0307.wav",
+  "speaker": "spk_11_0142",
+  "region": "North",
+  "province": "CaoBang",
+  "transcript": "Đầu năm cũng đã cùng với Bên khuyến nông khuyến lâm kết hợp Bên ủy ban đã chỉ đạo để bên khuyến nông khuyến lâm xuống tuyên truyền bà con nhân dân.",
+  "original_sr": 44100,
+  "original_duration_s": 9.239,
+  "original_samples": 407439,
+  "seed": 42,
+  "label": "augmentation reconstruction based on the weekly report methodology",
+  "augmentations": {
+    "04_amplitude_perturbation": {
+      "representation": "waveform-space",
+      "input": "float32 waveform",
+      "output": "float32 waveform → 16-bit PCM WAV",
+      "parameters": {
+        "gain_db": -1.506,
+        "factor": 0.8409
+      },
+      "seed": 42,
+      "library": "numpy",
+      "description": "Random gain between -6dB and +6dB",
+      "output_file": "amplitude.wav"
+    },
+    "05_time_shift": {
+      "representation": "waveform-space",
+      "input": "float32 waveform",
+      "output": "float32 waveform → 16-bit PCM WAV",
+      "parameters": {
+        "shift_samples": 2860,
+        "shift_ms": 64.85
+      },
+      "seed": 42,
+      "library": "numpy (np.roll)",
+      "description": "Circular shift by 64.85ms",
+      "output_file": "time_shift.wav"
+    },
+    "06_noise_injection": {
+      "representation": "waveform-space",
+      "input": "float32 waveform",
+      "output": "float32 waveform → 16-bit PCM WAV",
+      "parameters": {
+        "snr_db": 20.0,
+        "signal_rms": 0.068515,
+        "noise_rms": 0.006852
+      },
+      "seed": 42,
+      "library": "numpy (Gaussian noise)",
+      "description": "Additive Gaussian noise at 20.0dB SNR",
+      "output_file": "noise.wav"
+    },
+    "02_time_mask": {
+      "representation": "feature-space (log-mel spectrogram)",
+      "input": "log-mel spectrogram (80 mels, n_fft=512, hop=160)",
+      "output": "masked log-mel spectrogram (PNG image)",
+      "parameters": {
+        "masks": [
+          {
+            "t0": 860,
+            "width": 6,
+            "max_T": 20
+          },
+          {
+            "t0": 1130,
+            "width": 14,
+            "max_T": 20
+          }
+        ],
+        "num_masks": 2,
+        "max_T": 20
+      },
+      "seed": 42,
+      "library": "numpy (SpecAugment-style)",
+      "description": "SpecAugment time masking: 2 masks, max width 20 frames",
+      "output_file": "time_mask_spectrogram.png",
+      "NO_WAV": "feature-space transformation — no WAV generated"
+    },
+    "03_freq_mask": {
+      "representation": "feature-space (log-mel spectrogram)",
+      "input": "log-mel spectrogram (80 mels, n_fft=512, hop=160)",
+      "output": "masked log-mel spectrogram (PNG image)",
+      "parameters": {
+        "masks": [
+          {
+            "f0": 51,
+            "width": 6,
+            "max_F": 15
+          },
+          {
+            "f0": 14,
+            "width": 12,
+            "max_F": 15
+          }
+        ],
+        "num_masks": 2,
+        "max_F": 15
+      },
+      "seed": 42,
+      "library": "numpy (SpecAugment-style)",
+      "description": "SpecAugment frequency masking: 2 masks, max width 15 mel bins",
+      "output_file": "frequency_mask_spectrogram.png",
+      "NO_WAV": "feature-space transformation — no WAV generated"
+    }
+  },
+  "quality_checks": {
+    "amplitude": {
+      "file_exists": true,
+      "sample_rate": 44100,
+      "channels": 1,
+      "duration_s": 9.239,
+      "n_samples": 407439,
+      "has_nan": false,
+      "has_inf": false,
+      "amplitude_min": -0.440857,
+      "amplitude_max": 0.53919,
+      "rms": 0.057612,
+      "clipped": false,
+      "silent": false,
+      "decodable": true,
+      "decoded_sr": 44100
+    },
+    "time_shift": {
+      "file_exists": true,
+      "sample_rate": 44100,
+      "channels": 1,
+      "duration_s": 9.239,
+      "n_samples": 407439,
+      "has_nan": false,
+      "has_inf": false,
+      "amplitude_min": -0.524292,
+      "amplitude_max": 0.641235,
+      "rms": 0.068515,
+      "clipped": false,
+      "silent": false,
+      "decodable": true,
+      "decoded_sr": 44100
+    },
+    "noise": {
+      "file_exists": true,
+      "sample_rate": 44100,
+      "channels": 1,
+      "duration_s": 9.239,
+      "n_samples": 407439,
+      "has_nan": false,
+      "has_inf": false,
+      "amplitude_min": -0.530242,
+      "amplitude_max": 0.631105,
+      "rms": 0.068886,
+      "clipped": false,
+      "silent": false,
+      "decodable": true,
+      "decoded_sr": 44100
+    }
+  }
+}

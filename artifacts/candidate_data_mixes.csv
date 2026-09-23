@@ -1,0 +1,7 @@
+config,dataset,role,hours,transcript_type,speech_style,dialect_diversity,domain,speaker_diversity,storage_gb,leakage_risk,pseudo_label_risk,preprocessing_complexity,status
+CONFIG_A,VIVOS train,Primary,~14,Gold (human read),Read,UNKNOWN,General academic,65 speakers,1.5,Low (speaker IDs),None,Low (16kHz WAV),FEASIBLE
+CONFIG_A,FOSD subset,Supplement,15-30,Gold (human read),Read,UNKNOWN,General,UNKNOWN (limited IDs),3.7,Moderate (weak speaker meta),None,Moderate (MP3→WAV conversion),FEASIBLE
+CONFIG_B,VIVOS train,Baseline,~14,Gold (human read),Read,UNKNOWN,General academic,65 speakers,1.5,Low (speaker IDs),None,Low (16kHz WAV),SELECTED (PROVISIONAL)
+CONFIG_B,ViMD train,Dialect diversity,81.43,Gold (human spontaneous),Spontaneous,High (63 dialects; 3 regions),Provincial news,10291 speakers,~74 (parquet) or stream,Low (speaker+province IDs),None,Low (WAV in parquet; verify SR),SELECTED (PROVISIONAL)
+CONFIG_C,VIVOS train,Baseline gold,~14,Gold (human read),Read,UNKNOWN,General academic,65 speakers,1.5,Low (speaker IDs),None,Low (16kHz WAV),NOT READY TO FREEZE
+CONFIG_C,VietSuperSpeech,Silver conversational,~300 (HF manifest),Silver (Zipformer pseudo),Spontaneous,UNKNOWN,News/vlog/podcast,UNKNOWN (no speaker IDs),~62.6,High (no speaker IDs),HIGH,Low (16kHz WAV),NOT READY TO FREEZE — VERSION_UNRESOLVED

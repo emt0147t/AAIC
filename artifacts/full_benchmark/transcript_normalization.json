@@ -1,0 +1,31 @@
+{
+  "policy": "deterministic_vietnamese_asr_normalization",
+  "rules": [
+    {
+      "step": 1,
+      "name": "unicode_normalization",
+      "method": "unicodedata.normalize('NFC', text)",
+      "description": "Ensures precomposed Vietnamese vowels and tone diacritics are standard NFC form."
+    },
+    {
+      "step": 2,
+      "name": "case_folding",
+      "method": "text.lower()",
+      "description": "Lowercases all text, harmonizing uppercase prompts (VIVOS) and mixed-case transcripts (ViMD)."
+    },
+    {
+      "step": 3,
+      "name": "punctuation_stripping",
+      "method": "re.sub(r'[^\\w\\s]', '', text)",
+      "description": "Removes all punctuation marks while preserving all Vietnamese accented characters and alphanumeric tokens."
+    },
+    {
+      "step": 4,
+      "name": "whitespace_collapsing",
+      "method": "re.sub(r'\\s+', ' ', text).strip()",
+      "description": "Collapses multiple spaces, tabs, and newlines into a single space and strips boundary whitespace."
+    }
+  ],
+  "application": "Identical deterministic normalization applied to both reference and hypothesis before WER and CER calculation.",
+  "raw_transcripts_preserved": true
+}

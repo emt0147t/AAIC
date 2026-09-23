@@ -1,0 +1,28 @@
+# Vietnamese ASR Application Configuration
+app:
+  title: "Vietnamese Speech-to-Text & Data Augmentation Studio"
+  version: "1.0.0"
+  description: "Production-grade Vietnamese ASR inference, dataset mixture curation, and waveform-space audio augmentation pipeline."
+  host: "127.0.0.1"
+  port: 7860
+  share: false
+
+hardware:
+  preferred_device: "auto"  # 'auto', 'cuda', 'cpu'
+  allow_cpu_fallback: true
+  fp16_on_gpu: true
+  fp32_on_cpu: true
+
+audio_qc:
+  target_sample_rate: 16000
+  target_channels: 1
+  min_duration_sec: 0.2
+  max_duration_sec: 30.0
+  max_allowed_clipping_ratio: 0.001
+  min_signal_rms: 1e-5
+  max_headroom_db: 0.0
+
+export:
+  output_dir: "exports"
+  save_wav_pcm16: true
+  generate_zip: true

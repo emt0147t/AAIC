@@ -1,0 +1,22 @@
+{
+  "dataset": "VIVOS",
+  "schema": {
+    "columns": [
+      "speaker_id",
+      "path",
+      "audio",
+      "sentence"
+    ]
+  },
+  "splits": {
+    "train": 11660,
+    "test": 760
+  },
+  "audio": {
+    "sampling_rate": 16000,
+    "format": "WAV PCM 16-bit mono"
+  },
+  "license": "CC BY-NC-SA 4.0",
+  "source": "Zenodo + HF (AILAB-VNUHCM/vivos)",
+  "note": "HF file download requires auth; schema verified via API"
+}
