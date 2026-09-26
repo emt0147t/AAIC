@@ -123,8 +123,13 @@ In accordance with Section 8, Section 9, and Section 16 of the Frozen Protocol:
 ## 19. FROZEN TEST SET INTEGRITY
 - **Manifest:** `manifests/test_manifest.csv`
 - **Sample Count:** 9 official ViMD gold test utterances
-- **SHA-256 Hash:** `efe54856d12613f109cebc9482a6f224ca4e2370d0ff3f8a2fe4ea0a013b60ca`
-- **Integrity Status:** **STRICTLY VERIFIED AND UNCHANGED**. Zero evaluations were conducted on the test set.
+- **Expected Canonical SHA-256:** `efe54856d12613f109cebc9482a6f224ca4e2370d0ff3f8a2fe4ea0a013b60ca`
+- **Raw File SHA-256 (Windows CRLF):** `efe54856d12613f109cebc9482a6f224ca4e2370d0ff3f8a2fe4ea0a013b60ca`
+- **Raw File SHA-256 (Linux / Colab / Git HEAD LF):** `3cb69efe399f8a1c5eb83d7ad52d6a7611fa114abdb2986370ce860f36c27856`
+- **Canonical Frozen-Content SHA-256:** `efe54856d12613f109cebc9482a6f224ca4e2370d0ff3f8a2fe4ea0a013b60ca`
+- **Cross-Platform Line-Ending Audit:**
+  > "The frozen test manifest is byte-identical to Git HEAD. The raw SHA-256 differs from the historical Windows value only because Git checkout on Linux uses LF line endings instead of CRLF. Canonical CRLF normalization reproduces the frozen SHA-256 exactly."
+- **Integrity Status:** **STRICTLY VERIFIED AND UNCHANGED (PASS)**. Zero row, transcript, or audio path modifications occurred. Zero evaluations were conducted on the test set.
 
 ---
 

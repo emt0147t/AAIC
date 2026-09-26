@@ -97,12 +97,24 @@ def set_seed(seed: int = 42):
         torch.cuda.manual_seed_all(seed)
 
 
-def verify_file_sha256(path: str) -> str:
-    h = hashlib.sha256()
-    with open(path, "rb") as f:
-        while chunk := f.read(65536):
-            h.update(chunk)
-    return h.hexdigest()
+def compute_canonical_crlf_sha256(data: bytes) -> str:
+    """Canonicalize text CSV bytes to CRLF line endings and compute SHA-256.
+
+    CSV data is textual. Across platforms and Git configurations (e.g. Windows
+    vs Linux/Colab checkouts), Git may store or check out files with LF newlines
+    instead of CRLF newlines. The frozen integrity criterion is based on
+    canonicalized text content bytes. Changing line endings alone (LF vs CRLF)
+    does not represent content modification or data corruption.
+    Note: This canonicalization applies strictly to textual CSV manifests,
+    specifically manifests/test_manifest.csv.
+    """
+    canonical = (
+        data
+        .replace(b"\r\n", b"\n")
+        .replace(b"\r", b"\n")
+        .replace(b"\n", b"\r\n")
+    )
+    return hashlib.sha256(canonical).hexdigest()
 
 
 def verify_exposure_policy(epoch: int, n_samples: int = 26671, base_seed: int = 42) -> List[int]:
@@ -125,13 +137,24 @@ def preflight_check(test_manifest_path: str = "manifests/test_manifest.csv") -> 
     print("FULL E1 PRE-TRAINING INTEGRITY PRECHECK")
     print("=" * 70)
 
-    # 1. Check test manifest hash
+    # 1. Check test manifest hash (Platform-independent canonical CRLF normalization)
     if not os.path.exists(test_manifest_path):
         raise FileNotFoundError(f"Test manifest missing: {test_manifest_path}")
-    test_hash = verify_file_sha256(test_manifest_path)
-    print(f"Frozen test manifest SHA-256: {test_hash}")
-    if test_hash != FROZEN_TEST_SHA256:
-        raise ValueError(f"CRITICAL: Test manifest hash changed! Expected {FROZEN_TEST_SHA256}, got {test_hash}")
+    raw_bytes = open(test_manifest_path, "rb").read()
+    raw_hash = hashlib.sha256(raw_bytes).hexdigest()
+    canonical_hash = compute_canonical_crlf_sha256(raw_bytes)
+
+    print(f"Frozen test manifest RAW FILE SHA-256:         {raw_hash}")
+    print(f"Frozen test manifest CANONICAL FROZEN SHA-256: {canonical_hash}")
+
+    if canonical_hash != FROZEN_TEST_SHA256:
+        raise ValueError(
+            f"CRITICAL: Test manifest content altered!\n"
+            f"Expected Canonical SHA-256: {FROZEN_TEST_SHA256}\n"
+            f"Got Canonical SHA-256:      {canonical_hash}\n"
+            f"Raw File SHA-256:           {raw_hash}"
+        )
+    print("Frozen test manifest integrity: PASS")
 
     # 2. Check PEFT version
     import peft
@@ -155,7 +178,8 @@ def preflight_check(test_manifest_path: str = "manifests/test_manifest.csv") -> 
         print(f"Epoch {ep} exposure policy verified: 17 repeated indices match audited schedule.")
 
     return {
-        "test_hash": test_hash,
+        "raw_test_hash": raw_hash,
+        "canonical_test_hash": canonical_hash,
         "peft_version": peft.__version__,
         "cuda_available": cuda_available,
     }

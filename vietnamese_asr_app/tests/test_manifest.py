@@ -59,3 +59,28 @@ def test_duration_boundary_filter():
     assert "s2_toolong" not in retained_ids
     assert "s3_tooshort" not in retained_ids
     assert audit["excluded_duration_count"] == 2
+
+
+def test_manifest_cross_platform_line_ending_canonicalization():
+    """Verify that LF, CRLF, and CR text content yield identical canonical hashes,
+
+    while actual content modifications yield distinct hashes.
+    """
+    from scripts.train_full_e1 import compute_canonical_crlf_sha256
+
+    lf_content = b"sample_id,audio_path,transcript\ns1,audio/1.wav,xin chao\ns2,audio/2.wav,viet nam\n"
+    crlf_content = b"sample_id,audio_path,transcript\r\ns1,audio/1.wav,xin chao\r\ns2,audio/2.wav,viet nam\r\n"
+    cr_content = b"sample_id,audio_path,transcript\rs1,audio/1.wav,xin chao\rs2,audio/2.wav,viet nam\r"
+
+    hash_lf = compute_canonical_crlf_sha256(lf_content)
+    hash_crlf = compute_canonical_crlf_sha256(crlf_content)
+    hash_cr = compute_canonical_crlf_sha256(cr_content)
+
+    assert hash_lf == hash_crlf
+    assert hash_lf == hash_cr
+
+    # Actual field/character change must alter hash
+    altered_content = b"sample_id,audio_path,transcript\r\ns1,audio/1.wav,xin chao\r\ns2,audio/2.wav,viet nam 2\r\n"
+    hash_altered = compute_canonical_crlf_sha256(altered_content)
+    assert hash_altered != hash_crlf
+
