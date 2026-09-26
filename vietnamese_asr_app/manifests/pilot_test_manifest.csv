@@ -1,0 +1,5 @@
+sample_id,audio_path,speaker_id,duration_sec,transcript,dataset
+vivos_vivos_013,D:\Vietnamese_ASR_Week6\vivos_train_15\audio\vivos_013.wav,VIVOSSPK36,3.406,BẠN CÓ NHỮNG THẮC MẮC VỀ SỨC KHỎE CỦA MÌNH MÀ KHÔNG BIẾT HỎI AI,vivos
+vivos_vivos_014,D:\Vietnamese_ASR_Week6\vivos_train_15\audio\vivos_014.wav,VIVOSSPK38,3.625,HIỆN TẠI TỔ PHÁI VIÊN CỦA BAN NÔNG NGHIỆP TRUNG ƯƠNG ĐANG NẰM CẠNH TA,vivos
+vivos_vivos_015,D:\Vietnamese_ASR_Week6\vivos_train_15\audio\vivos_015.wav,VIVOSSPK42,2.999,NHẬP KHẨU HÀNG HOÁ MANG NHÃN HIỆU HÀNG HOÁ CỦA MÌNH,vivos
+vimd_vimd_09,D:\Vietnamese_ASR_Week6\vimd_demo_9\audio\vimd_09.wav,spk_59_0252,13.9790625,"Trong công việc của mình ở đây thì thường chủ yếu là sẽ tiếp nhận các cuộc gọi cấp cứu của người dân tới và sau đó xử trí, sau đó điều xe đi để hỗ trợ người dân nhanh nhất có thể. Vì cộng đồng, vì công cuộc chung thì những điều này thì cũng không phải là vấn đề lớn lắm.",vimd

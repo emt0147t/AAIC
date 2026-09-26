@@ -1,0 +1,4 @@
+experiment_id,description,training_data,epochs,optimizer_steps,sample_exposures,trainable_params,trainable_ratio_pct,micro_wer,micro_cer,mean_latency_sec,mean_rtf,delta_wer_vs_e0,delta_cer_vs_e0,delta_wer_vs_e1,delta_cer_vs_e1
+E0_baseline,Pretrained Zero-Shot PhoWhisper-tiny Baseline,None (Zero-shot),0,0,0,0,0.0000,18.93,11.07,1.412,0.140,0.00,0.00,-0.28,-1.09
+E1_lora_real,PhoWhisper-tiny + LoRA (Real Speech Only),22 Real (VIVOS + ViMD clean train),3,33,66,147456,0.3890,19.21,12.16,1.264,0.124,0.28,1.09,0.00,0.00
+E2_lora_real_synth,PhoWhisper-tiny + LoRA (Real + Synthetic Speech Fixed-Compute),15 Real + 7 Synth per epoch (45 Real + 21 Synth exposures),3,33,66,147456,0.3890,19.21,12.16,1.389,0.137,0.28,1.09,0.00,0.00

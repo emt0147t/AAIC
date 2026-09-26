@@ -1,0 +1,19 @@
+{
+  "audit_policy": "duration <= 30.0 seconds",
+  "policy_scope": "train and validation splits only (frozen test manifest is never filtered)",
+  "local_physical_corpus": {
+    "total_candidates": 22,
+    "candidates_le_30s": 22,
+    "candidates_gt_30s": 0,
+    "exclusions": []
+  },
+  "cloud_full_corpus": {
+    "total_candidates": 26683,
+    "candidates_le_30s": 26671,
+    "candidates_gt_30s": 12,
+    "vivos_train_gt_30s": 0,
+    "vimd_train_gt_30s": 12,
+    "exclusion_reason": "duration exceeds 30.0s threshold (range: 30.05s - 33.20s)",
+    "auditable_action": "Excluded from training-ready corpus; preserved in raw metadata without deletion."
+  }
+}

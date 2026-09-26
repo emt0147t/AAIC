@@ -1,0 +1,45 @@
+{
+  "training_status": "ABORTED",
+  "abort_reason": "CUDA runtime unavailable on local workstation (PyTorch CPU build under Python 3.14). Protocol requires FP16 mixed precision on CUDA.",
+  "protocol": {
+    "base_model": "vinai/PhoWhisper-tiny",
+    "pinned_revision": "cc51d32be916efebde04ff549854fa1741cb5c02",
+    "peft_version": "0.21.0",
+    "lora_r": 8,
+    "lora_alpha": 16,
+    "lora_dropout": 0.05,
+    "target_modules": ["q_proj", "v_proj"],
+    "bias": "none",
+    "trainable_parameters": 147456,
+    "trainable_ratio_pct": 0.389,
+    "micro_batch_size": 4,
+    "gradient_accumulation_steps": 8,
+    "effective_batch_size": 32,
+    "optimizer": "AdamW",
+    "learning_rate": 0.0001,
+    "weight_decay": 0.01,
+    "gradient_clipping": 1.0,
+    "precision": "fp16_mixed_precision",
+    "scheduler": "cosine",
+    "warmup_ratio": 0.10,
+    "epochs_target": 3,
+    "steps_per_epoch_target": 834,
+    "total_optimizer_steps_target": 2502,
+    "seed": 42
+  },
+  "datasets": {
+    "training_ready_utterances": 26671,
+    "vivos_train": 11660,
+    "vimd_train": 15011,
+    "validation_utterances": 1900,
+    "frozen_test_samples": 9,
+    "test_manifest_sha256": "efe54856d12613f109cebc9482a6f224ca4e2370d0ff3f8a2fe4ea0a013b60ca"
+  },
+  "execution_progress": {
+    "epochs_completed": 0,
+    "optimizer_steps_completed": 0,
+    "actual_wall_clock_duration_sec": 0.0,
+    "partial_metrics_reported": false
+  },
+  "colab_training_notebook": "ASR_FULL_E1_TRAINING.ipynb"
+}

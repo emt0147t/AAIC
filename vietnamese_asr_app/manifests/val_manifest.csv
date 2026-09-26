@@ -1,0 +1,6 @@
+﻿sample_id,audio_path,speaker_id,duration_sec,transcript,dataset,source_split
+vivos_val_vivos_011,D:\Vietnamese_ASR_Week6\vivos_train_15\audio\vivos_011.wav,VIVOSSPK33,3.875,ĐẤU TRANH THÌ ĐẤU TRANH NHƯNG HÀNG NGÀY CHÚNG EM VẪN QUÝ TRỌNG LẪN NHAU,vivos,train
+vivos_val_vivos_012,D:\Vietnamese_ASR_Week6\vivos_train_15\audio\vivos_012.wav,VIVOSSPK34,2.969,CÂU TRẢ LỜI ĐƯỢC ĐƯA RA TẠI MỘT BUỔI LÊN LỚP CUỐI NĂM MÔN VĂN HỌC,vivos,train
+vivos_val_vivos_013,D:\Vietnamese_ASR_Week6\vivos_train_15\audio\vivos_013.wav,VIVOSSPK36,3.406,BẠN CÓ NHỮNG THẮC MẮC VỀ SỨC KHỎE CỦA MÌNH MÀ KHÔNG BIẾT HỎI AI,vivos,train
+vivos_val_vivos_014,D:\Vietnamese_ASR_Week6\vivos_train_15\audio\vivos_014.wav,VIVOSSPK38,3.625,HIỆN TẠI TỔ PHÁI VIÊN CỦA BAN NÔNG NGHIỆP TRUNG ƯƠNG ĐANG NẰM CẠNH TA,vivos,train
+vivos_val_vivos_015,D:\Vietnamese_ASR_Week6\vivos_train_15\audio\vivos_015.wav,VIVOSSPK42,2.999,NHẬP KHẨU HÀNG HOÁ MANG NHÃN HIỆU HÀNG HOÁ CỦA MÌNH,vivos,train

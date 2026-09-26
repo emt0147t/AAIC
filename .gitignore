@@ -46,3 +46,13 @@ logs/
 # OS
 .DS_Store
 Thumbs.db
+
+# Temporary evaluation and scratch artifacts
+tmp*.csv
+vimd_demo_9/
+vivos_train_15/
+vivos_15_evaluation.csv
+evaluate_vimd9.py
+evaluate_vivos15.py
+prepare_vimd9.py
+vietnamese_asr_app/scratch/

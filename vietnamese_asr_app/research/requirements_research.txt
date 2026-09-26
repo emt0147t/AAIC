@@ -1,0 +1,4 @@
+# Research Layer Dependencies (PEFT / LoRA Training & Experiment Tracking)
+# Extends base requirements.txt
+peft>=0.7.0
+accelerate>=0.21.0

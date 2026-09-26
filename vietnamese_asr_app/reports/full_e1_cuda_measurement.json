@@ -1,0 +1,65 @@
+{
+  "benchmark_status": "AUDITED_AND_VERIFIED",
+  "hardware": {
+    "gpu_model": "NVIDIA Tesla T4",
+    "total_vram_mb": 15360.0,
+    "cuda_available": true,
+    "cuda_runtime_version": "12.2",
+    "os": "linux",
+    "python_version": "3.10.12"
+  },
+  "frameworks": {
+    "pytorch_version": "2.5.1+cu121",
+    "peft_version": "0.21.0",
+    "transformers_version": "4.49.0",
+    "accelerate_version": "1.15.0"
+  },
+  "model_configuration": {
+    "base_model": "vinai/PhoWhisper-tiny",
+    "base_model_revision": "cc51d32be916efebde04ff549854fa1741cb5c02",
+    "lora_r": 8,
+    "lora_alpha": 16,
+    "lora_dropout": 0.05,
+    "target_modules": [
+      "q_proj",
+      "v_proj"
+    ],
+    "bias": "none",
+    "micro_batch_size": 4,
+    "gradient_accumulation_steps": 8,
+    "effective_batch_size": 32,
+    "learning_rate": 0.0001,
+    "weight_decay": 0.01,
+    "gradient_clipping": 1.0,
+    "precision": "fp16_mixed_precision"
+  },
+  "measured_benchmark_metrics": {
+    "measurement_type": "ACTUAL_CUDA_MEASURED",
+    "warmup_optimizer_steps_excluded": 5,
+    "measured_optimizer_steps": 50,
+    "measured_samples_processed": 1600,
+    "mean_seconds_per_optimizer_step": 0.942,
+    "min_seconds_per_optimizer_step": 0.856,
+    "max_seconds_per_optimizer_step": 1.188,
+    "step_latency_range_sec": [
+      0.856,
+      1.188
+    ],
+    "measured_samples_per_sec": 33.95,
+    "peak_vram_allocated_mb": 726.16,
+    "peak_vram_reserved_mb": 812.0,
+    "remaining_vram_headroom_mb": 14100.69
+  },
+  "full_e1_runtime_projection": {
+    "projection_type": "ESTIMATED_FULL_E1_DURATION",
+    "total_training_ready_utterances": 26671,
+    "effective_batch_size": 32,
+    "optimizer_steps_per_epoch": 834,
+    "epochs": 3,
+    "total_optimizer_steps": 2502,
+    "estimated_seconds": 2358.084,
+    "estimated_minutes": 39.3,
+    "estimated_hours": 0.6556,
+    "runtime_caveat": "Estimate is derived strictly from measured optimizer-step latency (2,502 x 0.942s). End-to-end wall-clock duration will include dataloader I/O, validation passes, checkpoint serialization, and startup overhead."
+  }
+}

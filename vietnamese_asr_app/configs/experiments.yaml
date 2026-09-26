@@ -1,0 +1,146 @@
+E0:
+  experiment_id: E0_baseline_tiny
+  base_model_id: vinai/PhoWhisper-tiny
+  mode: eval_only
+  seed: 42
+  output_dir: checkpoints/E0_baseline
+  lora:
+    r: 8
+    lora_alpha: 16
+    lora_dropout: 0.05
+    target_modules:
+    - q_proj
+    - v_proj
+    bias: none
+  training:
+    batch_size: 2
+    gradient_accumulation_steps: 1
+    learning_rate: 0.0001
+    weight_decay: 0.01
+    warmup_ratio: 0.1
+    epochs: 3
+    lr_scheduler_type: cosine
+    max_grad_norm: 1.0
+    mixed_precision: fp16
+  data:
+    train_manifest: manifests/train_manifest.csv
+    val_manifest: manifests/val_manifest.csv
+    test_manifest: manifests/test_manifest.csv
+    max_train_samples: 22
+    max_val_samples: 5
+    max_test_samples: 9
+    quarantine_manifests:
+    - manifests/test_manifest.csv
+    synthetic_manifest: null
+    synthetic_ratio: 0.0
+  training_budget:
+    total_train_samples: 0
+    real_sample_count: 0
+    synthetic_sample_count: 0
+    real_ratio: 0.0
+    synthetic_ratio: 0.0
+    micro_batch_size: 2
+    gradient_accumulation_steps: 1
+    effective_batch_size: 2
+    fixed_optimizer_steps_per_epoch: 0
+    total_optimizer_steps: 0
+    sample_exposures_per_epoch: 0
+    total_sample_exposures: 0
+
+E1:
+  experiment_id: E1_lora_real_tiny
+  base_model_id: vinai/PhoWhisper-tiny
+  mode: train_and_eval
+  seed: 42
+  output_dir: checkpoints/E1_lora_real
+  lora:
+    r: 8
+    lora_alpha: 16
+    lora_dropout: 0.05
+    target_modules:
+    - q_proj
+    - v_proj
+    bias: none
+  training:
+    batch_size: 2
+    gradient_accumulation_steps: 1
+    learning_rate: 0.0001
+    weight_decay: 0.01
+    warmup_ratio: 0.1
+    epochs: 3
+    lr_scheduler_type: cosine
+    max_grad_norm: 1.0
+    mixed_precision: fp16
+  data:
+    train_manifest: manifests/train_manifest.csv
+    val_manifest: manifests/val_manifest.csv
+    test_manifest: manifests/test_manifest.csv
+    max_train_samples: 22
+    max_val_samples: 5
+    max_test_samples: 9
+    quarantine_manifests:
+    - manifests/test_manifest.csv
+    synthetic_manifest: null
+    synthetic_ratio: 0.0
+  training_budget:
+    total_train_samples: 22
+    real_sample_count: 22
+    synthetic_sample_count: 0
+    real_ratio: 1.0
+    synthetic_ratio: 0.0
+    micro_batch_size: 2
+    gradient_accumulation_steps: 1
+    effective_batch_size: 2
+    fixed_optimizer_steps_per_epoch: 11
+    total_optimizer_steps: 33
+    sample_exposures_per_epoch: 22
+    total_sample_exposures: 66
+
+E2:
+  experiment_id: E2_lora_real_synth_tiny
+  base_model_id: vinai/PhoWhisper-tiny
+  mode: train_and_eval
+  seed: 42
+  output_dir: checkpoints/E2_lora_real_synth
+  lora:
+    r: 8
+    lora_alpha: 16
+    lora_dropout: 0.05
+    target_modules:
+    - q_proj
+    - v_proj
+    bias: none
+  training:
+    batch_size: 2
+    gradient_accumulation_steps: 1
+    learning_rate: 0.0001
+    weight_decay: 0.01
+    warmup_ratio: 0.1
+    epochs: 3
+    lr_scheduler_type: cosine
+    max_grad_norm: 1.0
+    mixed_precision: fp16
+  data:
+    train_manifest: manifests/train_manifest.csv
+    val_manifest: manifests/val_manifest.csv
+    test_manifest: manifests/test_manifest.csv
+    max_train_samples: 22
+    max_val_samples: 5
+    max_test_samples: 9
+    quarantine_manifests:
+    - manifests/test_manifest.csv
+    synthetic_manifest: manifests/synthetic_qc_passed.csv
+    synthetic_ratio: 0.3182
+  training_budget:
+    total_train_samples: 22
+    real_sample_count: 15
+    synthetic_sample_count: 7
+    real_ratio: 0.6818
+    synthetic_ratio: 0.3182
+    micro_batch_size: 2
+    gradient_accumulation_steps: 1
+    effective_batch_size: 2
+    fixed_optimizer_steps_per_epoch: 11
+    total_optimizer_steps: 33
+    sample_exposures_per_epoch: 22
+    total_sample_exposures: 66

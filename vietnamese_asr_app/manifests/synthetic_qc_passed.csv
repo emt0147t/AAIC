@@ -1,0 +1,23 @@
+sample_id,audio_path,duration,transcript,speaker_id,source_dataset,source_split
+synth_01,data/synthetic/audio/synth_01.wav,5.6,NẰM Ở ĐAM MÊ HỌC CÁC THỨ NGÔN NGỮ,spk_synth_01,synthetic_vivos,train
+synth_02,data/synthetic/audio/synth_02.wav,3.12,KHI CHỨNG KIẾN NGƯỜI VỢ LĂNG LOÀN,spk_synth_02,synthetic_vivos,train
+synth_03,data/synthetic/audio/synth_03.wav,2.72,TỪ KHI HỌ CÒN LÀ TRẺ CON,spk_synth_03,synthetic_vivos,train
+synth_04,data/synthetic/audio/synth_04.wav,1.76,HAY BỊ THẤT BẠI THẢM HẠI,spk_synth_04,synthetic_vivos,train
+synth_05,data/synthetic/audio/synth_05.wav,2.72,TÔI CÓ NHỮNG DỰ ĐỊNH VÀ TÔI THỰC HIỆN,spk_synth_05,synthetic_vivos,train
+synth_06,data/synthetic/audio/synth_06.wav,2.48,LÝ THUYẾT ĐẸP ĐẼ LÀ NHƯ THẾ,spk_synth_06,synthetic_vivos,train
+synth_07,data/synthetic/audio/synth_07.wav,2.96,ĐÃ NHANH CHÓNG CÁCH LY LOÀI ĐỘNG VẬT NÀY,spk_synth_07,synthetic_vivos,train
+synth_08,data/synthetic/audio/synth_08.wav,2.24,ĐỊU GIẤC MƠ ĐỔI ĐỜI HƯỚNG VỀ,spk_synth_08,synthetic_vivos,train
+synth_09,data/synthetic/audio/synth_09.wav,4.16,HÌNH ẢNH MẤY CÂY KEM MÁT RƯỢI HIỆN LÊN TRONG ĐẦU KHIẾN TÔI GẬT ĐẦU,spk_synth_09,synthetic_vivos,train
+synth_10,data/synthetic/audio/synth_10.wav,3.92,ĐIỀU NÀY ẢNH HƯỞNG NHIỀU ĐẾN QUÁ TRÌNH HỌC TẬP VÀ LÀM VIỆC SAU NÀY,spk_synth_01,synthetic_vivos,train
+synth_11,data/synthetic/audio/synth_11.wav,7.68,Mình có rất là nhiều lý do để tổ chức cái chương trình này ở tại cái điểm trường này. Bởi vì là nhìn các cháu,spk_synth_02,synthetic_vimd,train
+synth_12,data/synthetic/audio/synth_12.wav,6.56,"Khi có sân trường mới, con cảm thấy rất vui. Có sân trường mới, con có thể vui chơi cùng các bạn mà không sợ bẩn nữa.",spk_synth_03,synthetic_vimd,train
+synth_13,data/synthetic/audio/synth_13.wav,11.28,thì trước đây thì là những hôm trời mưa thì là gầm sân chơi thì mưa nước vào thì cái sân chơi thì toàn đất bùn thì các cháu đi vào cũng rất là khó cho cái hoạt động ngoài trời và từ khi nhận được cái sân chơi này,spk_synth_04,synthetic_vimd,train
+synth_14,data/synthetic/audio/synth_14.wav,3.76,Mình mong muốn nuôi cá sạch để cung cấp ra thị trường cho người tiêu dùng.,spk_synth_05,synthetic_vimd,train
+synth_15,data/synthetic/audio/synth_15.wav,3.68,Em muốn góp sức trẻ của mình để phát triển kinh tế địa phương.,spk_synth_06,synthetic_vimd,train
+synth_16,data/synthetic/audio/synth_16.wav,7.44,"Như mình thì đơn giản thôi, mình chỉ muốn là cung cấp thức ăn là bữa ăn cho gia đình của mình thôi. Và muốn kiếm một tí kinh tế để phục vụ cho gia đình.",spk_synth_07,synthetic_vimd,train
+synth_17,data/synthetic/audio/synth_17.wav,6.24,"và tập trung vào các nội dung như hỗ trợ trước, trong và sau kỳ thi tốt nghiệp Trung học Phổ thông năm hai nghìn không trăm hai ba.",spk_synth_08,synthetic_vimd,train
+synth_18,data/synthetic/audio/synth_18.wav,6.16,"Mọi người như cháu Dũng này thì thì sẽ tuyên truyền nhân rộng để cho xóm, để mọi người làm theo cháu Dũng.",spk_synth_09,synthetic_vimd,train
+synth_19,data/synthetic/audio/synth_19.wav,11.92,"Cô phải lấy lại tinh thần để có thể giúp bọn em để có thể đi qua đấu trường, có thể tham gia được đấu trường quốc tế. Nếu bọn em thấy cô còn mệt mỏi hơn mình gấp nhiều lần thì tại sao bọn em lại có thể bỏ cuộc được. Bọn em phải cố gắng lên.",spk_synth_01,synthetic_vimd,train
+synth_20,data/synthetic/audio/synth_20.wav,7.44,Nói chung là những cái gì mà hỗ trợ được các doanh nghiệp là các cơ quan ban ngành của tỉnh hỗ trợ rất là nhiệt tình và tốt.,spk_synth_02,synthetic_vimd,train
+synth_21,data/synthetic/audio/synth_21.wav,14.72,Vì chúng ta phải có từ vựng thì chúng ta mới có thể nói được và có từ vựng thì mới có thể thực hiện được các kỹ năng khác. Cho nên là đối với em thì em sẽ học từ vựng bằng những cái flashcard hay là trên những cái ứng dụng. Từ đó giúp em nhớ lâu hơn và có thể vận dụng được trong các kỹ năng khác.,spk_synth_03,synthetic_vimd,train
+synth_22,data/synthetic/audio/synth_22.wav,6.0,"Trong nhà bán trú có giường tầng, có những cái đẹp. Con rất vui khi trong nhà bán trú của mình có những thứ đó.",spk_synth_04,synthetic_vimd,train

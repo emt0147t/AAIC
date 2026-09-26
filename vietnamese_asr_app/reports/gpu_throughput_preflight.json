@@ -1,0 +1,23 @@
+{
+  "device": "cpu",
+  "gpu_name": "CPU (Fallback)",
+  "cuda_available": false,
+  "cuda_version": "N/A",
+  "pytorch_version": "2.10.0+cpu",
+  "successful_optimizer_steps": 2,
+  "total_samples_processed": 64,
+  "effective_batch_size": 32,
+  "total_benchmark_duration_sec": 39.21,
+  "samples_per_sec": 1.632,
+  "mean_seconds_per_optimizer_step": 19.605,
+  "peak_vram_allocated_mb": 0.0,
+  "peak_vram_reserved_mb": 0.0,
+  "mean_training_loss": 5.9614,
+  "loss_progression": [
+    6.2602,
+    5.6627
+  ],
+  "estimated_full_e1_steps": 2502,
+  "estimated_full_duration_sec": 49051.87,
+  "estimated_full_duration_hours": 13.63
+}

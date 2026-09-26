@@ -1,0 +1,5 @@
+sample_id,audio_path,speaker_id,duration_sec,transcript,dataset
+vivos_vivos_011,D:\Vietnamese_ASR_Week6\vivos_train_15\audio\vivos_011.wav,VIVOSSPK33,3.875,ĐẤU TRANH THÌ ĐẤU TRANH NHƯNG HÀNG NGÀY CHÚNG EM VẪN QUÝ TRỌNG LẪN NHAU,vivos
+vivos_vivos_012,D:\Vietnamese_ASR_Week6\vivos_train_15\audio\vivos_012.wav,VIVOSSPK34,2.969,CÂU TRẢ LỜI ĐƯỢC ĐƯA RA TẠI MỘT BUỔI LÊN LỚP CUỐI NĂM MÔN VĂN HỌC,vivos
+vimd_vimd_07,D:\Vietnamese_ASR_Week6\vimd_demo_9\audio\vimd_07.wav,spk_59_0244,12.738375,Ở cái tình hình dịch bệnh hiện tại đang phức tạp thì ít nhiều gì có vắc xin trong người thì cũng giảm thiểu cái khả năng nguy hiểm của chính bản thân mình.,vimd
+vimd_vimd_08,D:\Vietnamese_ASR_Week6\vimd_demo_9\audio\vimd_08.wav,spk_59_0251,8.237,Ban đầu cũng hơi có lo lắng nhưng mà sau một thời gian thì tinh thần thì vẫn cố gắng để phục vụ cho bà con sức khỏe của bà con nhân dân ở địa bàn thành phố.,vimd
