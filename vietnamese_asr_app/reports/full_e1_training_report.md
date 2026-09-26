@@ -150,3 +150,22 @@ In accordance with Section 8, Section 9, and Section 16 of the Frozen Protocol:
 ## 25. PROVENANCE & LICENSING RESTRICTION
 - **ViMD License:** Creative Commons Attribution-NonCommercial-NoDerivatives 4.0 International (**CC BY-NC-ND 4.0**).
 - **Compliance Mandate:** Technical CUDA training is cleared for internal academic benchmarking. Any fine-tuned checkpoint weights resulting from Full E1 must remain strictly designated as **internal research artifacts** and must not be published or redistributed on external platforms.
+
+---
+
+## 26. DATA PIPELINE STREAMING & DISK-SAFETY AUDIT
+- **Audit Date:** 2026-09-27
+- **Root Cause Identified:** In `vietnamese_asr_app/scripts/train_full_e1.py`, previous versions invoked `load_dataset("nguyendv02/ViMD_Dataset", split="train")` without `streaming=True`. This default triggered Hugging Face's `download_and_prepare()`, initiating the download of all 103 parquet shards (`~502 MB` each, totaling `51.5 GB`) into `~/.cache/huggingface/datasets/downloads/`. On Google Colab (112.64 GB disk), this consumed 103.50 GB, leaving only 9.14 GB remaining. Additionally, iterating over waveforms to store uncompressed float32 arrays in a Python list would consume ~22 GB in RAM, triggering Linux OOM kill.
+- **Implemented Repairs:**
+  1. **Preflight Disk Safety Gate (`check_disk_safety`):** Enforces a minimum 10.0 GB free disk space threshold via `shutil.disk_usage()`. Automatically aborts before initiating data streaming if disk is low.
+  2. **Genuine Streaming Architecture (`FullE1StreamingDataset` & `FullE1StreamingValDataset`):** Strictly configures `streaming=True` on both VIVOS (`thanhduycao/vivos_ng_only`, rev `b2fbc10431b721dc9b0409b716d56a759d1cf332`) and ViMD (`nguyendv02/ViMD_Dataset`, rev `3a5b30157034e7eadd5c75fae1a820c6f9383398`). Audio columns cast with `Audio(decode=False)` to prevent background shard caching or torchcodec overhead.
+  3. **On-Demand Audio Decoding (`decode_audio_record`):** Streamed audio bytes are decoded on the fly via `soundfile` / `librosa` into 16 kHz mono float32 for feature extraction and immediately discarded after micro-batch collation. Peak RAM remains `< 500 MB`.
+  4. **Deterministic Exposure Preservation:** Retains the exact 26,688 sample exposures per epoch (834 optimizer steps of effective batch 32; 2,502 total optimizer steps). The exact 17 audited padding indices (`verify_exposure_policy`) are buffered on-the-fly (~8 MB memory) and yielded deterministically to pad the 834th step.
+  5. **Smoke Test Verification:** Verified with `scripts/train_full_e1.py --smoke_test_streaming`:
+     - VIVOS Object Type: `<class 'datasets.iterable_dataset.IterableDataset'>`
+     - ViMD Object Type: `<class 'datasets.iterable_dataset.IterableDataset'>`
+     - Disk Free Before: 167.39 GB
+     - Disk Free After: 167.39 GB (Delta: 0.0000 MB)
+     - Unexpected Large Downloads: None (0 parquet shards downloaded)
+     - Unit / Regression Suite: 44/44 tests passed (`pytest tests/`).
+

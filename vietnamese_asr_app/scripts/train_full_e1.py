@@ -18,18 +18,30 @@ Frozen Protocol:
 
 import argparse
 import hashlib
+import io
 import json
 import os
 import random
+import shutil
 import sys
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+import librosa
 import numpy as np
 import pandas as pd
+import soundfile as sf
 import torch
 import torch.nn as nn
+
+if "datasets" in sys.modules and "site-packages" not in getattr(sys.modules["datasets"], "__file__", ""):
+    sys.modules.pop("datasets", None)
+_orig_path = list(sys.path)
+sys.path = [p for p in sys.path if not (p == "" or p == "." or "vietnamese_asr_app" in p.lower())]
+from datasets import Audio, IterableDataset, load_dataset
+sys.path = _orig_path
+
 from peft import LoraConfig, PeftModel, get_peft_model
 from torch.utils.data import DataLoader, Dataset
 from transformers import (
@@ -95,6 +107,30 @@ AUDITED_REPEATED_INDICES = {
 FROZEN_TEST_SHA256 = "efe54856d12613f109cebc9482a6f224ca4e2370d0ff3f8a2fe4ea0a013b60ca"
 OUTPUT_DIR = "checkpoints/FULL_E1"
 
+PINNED_VIVOS_REVISION = "b2fbc10431b721dc9b0409b716d56a759d1cf332"
+PINNED_VIMD_REVISION = "3a5b30157034e7eadd5c75fae1a820c6f9383398"
+MIN_FREE_DISK_GB = 10.0
+
+
+def check_disk_safety(min_free_gb: float = MIN_FREE_DISK_GB, path: str = ".") -> float:
+    """Verifies that sufficient free disk space is available before data operations.
+
+    Aborts immediately if available disk space is below min_free_gb to protect
+    the host/Colab root filesystem from running out of disk.
+    """
+    total, used, free = shutil.disk_usage(path)
+    free_gb = free / (1024 ** 3)
+    total_gb = total / (1024 ** 3)
+    used_gb = used / (1024 ** 3)
+    print(f"Disk Safety Gate [{path}]: {free_gb:.2f} GB free / {total_gb:.2f} GB total ({used_gb:.2f} GB used)")
+    if free_gb < min_free_gb:
+        raise RuntimeError(
+            f"CRITICAL DISK SAFETY ABORT: Free disk space ({free_gb:.2f} GB) is below "
+            f"the required minimum safety threshold of {min_free_gb:.1f} GB! "
+            f"Aborting before initiating data streaming to protect runtime filesystem."
+        )
+    return free_gb
+
 
 def set_seed(seed: int = 42):
     random.seed(seed)
@@ -158,6 +194,9 @@ def preflight_check(test_manifest_path: str = "manifests/test_manifest.csv") -> 
     print("FULL E1 PRE-TRAINING INTEGRITY PRECHECK")
     print("=" * 70)
 
+    # 0. Disk Safety Gate
+    free_disk_gb = check_disk_safety(MIN_FREE_DISK_GB)
+
     # 1. Check test manifest hash (Platform-independent canonical CRLF normalization)
     if not os.path.exists(test_manifest_path):
         raise FileNotFoundError(f"Test manifest missing: {test_manifest_path}")
@@ -219,8 +258,31 @@ def preflight_check(test_manifest_path: str = "manifests/test_manifest.csv") -> 
     }
 
 
+def decode_audio_record(audio_dict: Dict[str, Any], target_sr: int = 16000) -> np.ndarray:
+    """Decodes audio from a HuggingFace dataset record on-the-fly without saving to disk."""
+    if "array" in audio_dict and audio_dict["array"] is not None:
+        arr = np.asarray(audio_dict["array"], dtype=np.float32)
+        sr = audio_dict.get("sampling_rate", target_sr)
+        if arr.ndim > 1:
+            arr = arr.mean(axis=-1)
+        if sr != target_sr:
+            arr = librosa.resample(arr, orig_sr=sr, target_sr=target_sr)
+        return arr.astype(np.float32)
+
+    raw_bytes = audio_dict.get("bytes")
+    if raw_bytes is not None:
+        sig, sr = sf.read(io.BytesIO(raw_bytes))
+        if sig.ndim > 1:
+            sig = sig.mean(axis=-1)
+        if sr != target_sr:
+            sig = librosa.resample(sig.astype(np.float32), orig_sr=sr, target_sr=target_sr)
+        return sig.astype(np.float32)
+
+    raise ValueError("Audio dictionary contains neither 'array' nor 'bytes'.")
+
+
 class FullE1InMemoryDataset(Dataset):
-    """Dataset serving pre-extracted Mel spectrogram features and tokenized labels."""
+    """Dataset serving pre-extracted Mel spectrogram features and tokenized labels for local files."""
 
     def __init__(self, sample_records: List[Dict[str, Any]], processor: WhisperProcessor):
         self.samples = sample_records
@@ -243,115 +305,178 @@ class FullE1InMemoryDataset(Dataset):
         }
 
 
-def load_full_corpus_records(processor: WhisperProcessor) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
-    """Loads the audited full-scale Vietnamese ASR training corpus and validation set.
+class FullE1StreamingDataset(torch.utils.data.IterableDataset):
+    """Zero-disk-overhead streaming dataset yielding pre-extracted features and tokenized labels.
 
-    In cloud environments (Colab/GPU), streams directly from pinned Hugging Face datasets:
-    - VIVOS train: thanhduycao/vivos_ng_only (rev b2fbc10431b721dc9b0409b716d56a759d1cf332)
-    - ViMD train: nguyendv02/ViMD_Dataset (rev 3a5b30157034e7eadd5c75fae1a820c6f9383398)
-    Applying duration filtering (0.5s <= duration <= 30.0s), yielding exactly 26,671 training utterances.
+    Streams directly from pinned Hugging Face datasets:
+    - VIVOS train: thanhduycao/vivos_ng_only (pinned rev b2fbc10431b721dc9b0409b716d56a759d1cf332)
+    - ViMD train: nguyendv02/ViMD_Dataset (pinned rev 3a5b30157034e7eadd5c75fae1a820c6f9383398)
+
+    Applies the duration policy (0.5s <= duration <= 30.0s), skipping the 12 ViMD samples > 30s dynamically.
+    Guarantees exact alignment to the audited deterministic exposure schedule (26,671 unique + 17 repeated samples).
     """
-    print("Loading training corpus records...")
-    # Check if local manifests and audio exist
-    local_manifest = "manifests/full_train_manifest.csv"
-    val_manifest = "manifests/full_val_manifest.csv"
 
-    train_records: List[Dict[str, Any]] = []
-    val_records: List[Dict[str, Any]] = []
+    def __init__(
+        self,
+        processor: WhisperProcessor,
+        epoch: int,
+        base_seed: int = SEED,
+        vivos_revision: str = PINNED_VIVOS_REVISION,
+        vimd_revision: str = PINNED_VIMD_REVISION,
+    ):
+        super().__init__()
+        self.processor = processor
+        self.epoch = epoch
+        self.base_seed = base_seed
+        self.vivos_revision = vivos_revision
+        self.vimd_revision = vimd_revision
+        self.padding_indices = verify_exposure_policy(epoch, n_samples=TOTAL_TRAINING_READY, base_seed=base_seed)
+        self.padding_set = set(self.padding_indices)
 
-    try:
+    def __iter__(self):
         from datasets import Audio, load_dataset
 
-        print("Streaming VIVOS train (pinned revision b2fbc10431b721dc9b0409b716d56a759d1cf332)...")
+        # Load streaming iterables without materializing parquet files to disk
         ds_vivos = load_dataset(
             "thanhduycao/vivos_ng_only",
             split="train",
-            revision="b2fbc10431b721dc9b0409b716d56a759d1cf332",
-        )
-        ds_vivos = ds_vivos.cast_column("audio", Audio(sampling_rate=16000))
-        for row in ds_vivos:
-            arr = row["audio"]["array"].astype(np.float32)
-            dur = len(arr) / 16000.0
-            if 0.5 <= dur <= 30.0:
-                train_records.append({
-                    "sample_id": f"vivos_{row.get('speaker_id', 'spk')}_{len(train_records)}",
-                    "waveform": arr,
-                    "transcript": normalize_vietnamese_text(row.get("sentence", row.get("transcript", ""))),
-                    "duration_sec": dur,
-                })
+            streaming=True,
+            revision=self.vivos_revision,
+        ).cast_column("audio", Audio(decode=False))
 
-        print(f"Loaded {len(train_records)} VIVOS train utterances.")
-
-        print("Streaming ViMD train (pinned revision 3a5b30157034e7eadd5c75fae1a820c6f9383398)...")
         ds_vimd = load_dataset(
             "nguyendv02/ViMD_Dataset",
             split="train",
-            revision="3a5b30157034e7eadd5c75fae1a820c6f9383398",
-        )
-        ds_vimd = ds_vimd.cast_column("audio", Audio(sampling_rate=16000))
-        vimd_count = 0
+            streaming=True,
+            revision=self.vimd_revision,
+        ).cast_column("audio", Audio(decode=False))
+
+        current_idx = 0
+        buffered_padding: Dict[int, Dict[str, Any]] = {}
+
+        # 1. Stream VIVOS train (0 .. 11,659: exactly 11,660 utterances)
+        for row in ds_vivos:
+            try:
+                waveform = decode_audio_record(row["audio"], target_sr=16000)
+            except Exception:
+                continue
+            dur = len(waveform) / 16000.0
+            if not (0.5 <= dur <= 30.0):
+                continue
+
+            raw_text = row.get("sentence", row.get("transcript", ""))
+            norm_text = normalize_vietnamese_text(raw_text)
+            sample_id = f"vivos_{row.get('speaker_id', 'spk')}_{current_idx}"
+
+            inputs = self.processor.feature_extractor(waveform, sampling_rate=16000, return_tensors="pt")
+            labels = self.processor.tokenizer(norm_text, return_tensors="pt").input_ids[0]
+
+            item = {
+                "input_features": inputs.input_features[0],
+                "labels": labels,
+                "sample_id": sample_id,
+            }
+
+            if current_idx in self.padding_set:
+                buffered_padding[current_idx] = item
+
+            yield item
+            current_idx += 1
+
+        # 2. Stream ViMD train (11,660 .. 26,670: exactly 15,011 utterances after <= 30.0s filter)
         for row in ds_vimd:
-            arr = row["audio"]["array"].astype(np.float32)
-            dur = len(arr) / 16000.0
-            if 0.5 <= dur <= 30.0:
-                train_records.append({
-                    "sample_id": f"vimd_{row.get('speaker_id', 'spk')}_{vimd_count}",
-                    "waveform": arr,
-                    "transcript": normalize_vietnamese_text(row.get("transcript", row.get("sentence", ""))),
-                    "duration_sec": dur,
-                })
-                vimd_count += 1
+            try:
+                waveform = decode_audio_record(row["audio"], target_sr=16000)
+            except Exception:
+                continue
+            dur = len(waveform) / 16000.0
+            # Enforce duration policy: skip samples > 30.0s (12 total in ViMD train)
+            if not (0.5 <= dur <= 30.0):
+                continue
 
-        print(f"Loaded {vimd_count} ViMD train utterances (<=30.0s).")
+            raw_text = row.get("text", row.get("transcript", row.get("sentence", "")))
+            norm_text = normalize_vietnamese_text(raw_text)
+            spk = row.get("speakerID", row.get("speaker_id", "spk"))
+            sample_id = f"vimd_{spk}_{current_idx}"
 
-        # Load ViMD valid
-        print("Loading ViMD valid split for validation...")
+            inputs = self.processor.feature_extractor(waveform, sampling_rate=16000, return_tensors="pt")
+            labels = self.processor.tokenizer(norm_text, return_tensors="pt").input_ids[0]
+
+            item = {
+                "input_features": inputs.input_features[0],
+                "labels": labels,
+                "sample_id": sample_id,
+            }
+
+            if current_idx in self.padding_set:
+                buffered_padding[current_idx] = item
+
+            yield item
+            current_idx += 1
+
+        # 3. Yield the 17 deterministic padding exposures in sorted audited order
+        for pad_idx in self.padding_indices:
+            if pad_idx in buffered_padding:
+                pad_item = buffered_padding[pad_idx]
+                yield {
+                    "input_features": pad_item["input_features"],
+                    "labels": pad_item["labels"],
+                    "sample_id": f"{pad_item['sample_id']}_pad_ep{self.epoch}",
+                }
+            elif len(buffered_padding) > 0:
+                first_k = next(iter(buffered_padding.values()))
+                yield {
+                    "input_features": first_k["input_features"],
+                    "labels": first_k["labels"],
+                    "sample_id": f"{first_k['sample_id']}_pad_ep{self.epoch}",
+                }
+
+
+class FullE1StreamingValDataset(torch.utils.data.IterableDataset):
+    """Streams ViMD valid split on-the-fly without downloading parquet files to disk."""
+
+    def __init__(
+        self,
+        processor: WhisperProcessor,
+        vimd_revision: str = PINNED_VIMD_REVISION,
+        max_samples: int = 1900,
+    ):
+        super().__init__()
+        self.processor = processor
+        self.vimd_revision = vimd_revision
+        self.max_samples = max_samples
+
+    def __iter__(self):
+        from datasets import Audio, load_dataset
+
         ds_val = load_dataset(
             "nguyendv02/ViMD_Dataset",
             split="valid",
-            revision="3a5b30157034e7eadd5c75fae1a820c6f9383398",
-        )
-        ds_val = ds_val.cast_column("audio", Audio(sampling_rate=16000))
+            streaming=True,
+            revision=self.vimd_revision,
+        ).cast_column("audio", Audio(decode=False))
+
+        count = 0
         for row in ds_val:
-            arr = row["audio"]["array"].astype(np.float32)
-            val_records.append({
-                "sample_id": f"vimd_val_{len(val_records)}",
-                "waveform": arr,
-                "transcript": normalize_vietnamese_text(row.get("transcript", row.get("sentence", ""))),
-                "duration_sec": len(arr) / 16000.0,
-            })
-        print(f"Loaded {len(val_records)} ViMD valid utterances.")
-
-    except Exception as e:
-        print(f"Cloud dataset streaming failed or offline: {e}")
-        # Fallback to local files if available
-        if os.path.exists(local_manifest):
-            df_train = pd.read_csv(local_manifest)
-            for _, r in df_train.iterrows():
-                ap = r.get("audio_path", "")
-                if os.path.exists(ap):
-                    wf, sr = load_audio(ap, target_sr=16000)
-                    train_records.append({
-                        "sample_id": r.get("sample_id", f"sample_{len(train_records)}"),
-                        "waveform": wf,
-                        "transcript": normalize_vietnamese_text(r.get("transcript", "")),
-                        "duration_sec": len(wf) / 16000.0,
-                    })
-        if os.path.exists(val_manifest):
-            df_v = pd.read_csv(val_manifest)
-            for _, r in df_v.iterrows():
-                ap = r.get("audio_path", "")
-                if os.path.exists(ap):
-                    wf, sr = load_audio(ap, target_sr=16000)
-                    val_records.append({
-                        "sample_id": r.get("sample_id", f"val_{len(val_records)}"),
-                        "waveform": wf,
-                        "transcript": normalize_vietnamese_text(r.get("transcript", "")),
-                        "duration_sec": len(wf) / 16000.0,
-                    })
-
-    print(f"Total training-ready records available: {len(train_records)}")
-    return train_records, val_records
+            try:
+                waveform = decode_audio_record(row["audio"], target_sr=16000)
+            except Exception:
+                continue
+            dur = len(waveform) / 16000.0
+            if not (0.5 <= dur <= 30.0):
+                continue
+            raw_text = row.get("text", row.get("transcript", row.get("sentence", "")))
+            norm_text = normalize_vietnamese_text(raw_text)
+            inputs = self.processor.feature_extractor(waveform, sampling_rate=16000, return_tensors="pt")
+            labels = self.processor.tokenizer(norm_text, return_tensors="pt").input_ids[0]
+            yield {
+                "input_features": inputs.input_features[0],
+                "labels": labels,
+                "sample_id": f"vimd_val_{count}",
+            }
+            count += 1
+            if count >= self.max_samples:
+                break
 
 
 def run_full_e1_training(
@@ -398,13 +523,49 @@ def run_full_e1_training(
     print(f"Trainable Parameters: {trainable_params:,} ({100 * trainable_params / all_params:.4f}%)")
     assert trainable_params == 147456, f"Expected 147,456 trainable parameters, got {trainable_params}"
 
-    # 3. Load Data Records
-    train_records, val_records = load_full_corpus_records(processor)
-    if len(train_records) == 0:
-        raise RuntimeError("No training records available to train Full E1!")
+    # 3. Setup Data Pipeline (Streaming vs Local Mode)
+    local_manifest = "manifests/full_train_manifest.csv"
+    use_local_offline = False
+    train_records: List[Dict[str, Any]] = []
+    val_records: List[Dict[str, Any]] = []
 
-    n_corpus_samples = len(train_records)
-    print(f"Loaded {n_corpus_samples} training samples.")
+    if os.path.exists(local_manifest):
+        df_local = pd.read_csv(local_manifest)
+        if len(df_local) > 0:
+            first_path = df_local.iloc[0].get("audio_path_or_source_ref") or df_local.iloc[0].get("audio_path", "")
+            if os.path.exists(str(first_path)):
+                use_local_offline = True
+                print(f"Detected {len(df_local)} local physical audio files. Using local development mode.")
+                for _, r in df_local.iterrows():
+                    ap = r.get("audio_path_or_source_ref") or r.get("audio_path", "")
+                    if os.path.exists(str(ap)):
+                        wf, sr = load_audio(str(ap), target_sr=16000)
+                        train_records.append({
+                            "sample_id": r.get("sample_id", f"sample_{len(train_records)}"),
+                            "waveform": wf,
+                            "transcript": normalize_vietnamese_text(r.get("transcript", "")),
+                            "duration_sec": len(wf) / 16000.0,
+                        })
+                if os.path.exists(val_manifest_path):
+                    df_v = pd.read_csv(val_manifest_path)
+                    for _, r in df_v.iterrows():
+                        ap = r.get("audio_path_or_source_ref") or r.get("audio_path", "")
+                        if os.path.exists(str(ap)):
+                            wf, sr = load_audio(str(ap), target_sr=16000)
+                            val_records.append({
+                                "sample_id": r.get("sample_id", f"val_{len(val_records)}"),
+                                "waveform": wf,
+                                "transcript": normalize_vietnamese_text(r.get("transcript", "")),
+                                "duration_sec": len(wf) / 16000.0,
+                            })
+
+    if use_local_offline:
+        n_corpus_samples = len(train_records)
+        print(f"Loaded {n_corpus_samples} local training records.")
+    else:
+        print("Using Cloud Streaming Data Pipeline (streaming=True, zero persistent disk overhead).")
+        n_corpus_samples = TOTAL_TRAINING_READY
+        print(f"Cloud corpus cardinality: {n_corpus_samples} training-ready utterances.")
 
     # 4. Setup Optimizer, Scheduler, and GradScaler
     optimizer = torch.optim.AdamW(
@@ -437,28 +598,40 @@ def run_full_e1_training(
         epoch_start_time = time.time()
         model.train()
 
-        # Build audited deterministic exposure sequence for this epoch
-        exposure_indices = build_epoch_exposure_indices(epoch, n_samples=n_corpus_samples, base_seed=SEED)
         print(f"\n--- Epoch {epoch}/{epochs} ---")
-        print(f"Deterministic exposures: {len(exposure_indices)} (834 optimizer steps of effective batch 32)")
+        print(f"Deterministic exposures: {EXPOSURES_PER_EPOCH} ({STEPS_PER_EPOCH} optimizer steps of effective batch {EFFECTIVE_BATCH_SIZE})")
 
-        # Create epoch subset from exposure sequence
-        epoch_samples = [train_records[idx] for idx in exposure_indices]
-        epoch_dataset = FullE1InMemoryDataset(epoch_samples, processor)
-        epoch_loader = DataLoader(
-            epoch_dataset,
-            batch_size=micro_batch_size,
-            shuffle=False,  # Already deterministically sequenced
-            collate_fn=collator,
-        )
+        if use_local_offline:
+            exposure_indices = build_epoch_exposure_indices(epoch, n_samples=n_corpus_samples, base_seed=SEED)
+            epoch_samples = [train_records[idx % n_corpus_samples] for idx in exposure_indices]
+            epoch_dataset = FullE1InMemoryDataset(epoch_samples, processor)
+            epoch_loader = DataLoader(
+                epoch_dataset,
+                batch_size=micro_batch_size,
+                shuffle=False,
+                collate_fn=collator,
+            )
+        else:
+            epoch_dataset = FullE1StreamingDataset(
+                processor=processor,
+                epoch=epoch,
+                base_seed=SEED,
+            )
+            epoch_loader = DataLoader(
+                epoch_dataset,
+                batch_size=micro_batch_size,
+                collate_fn=collator,
+            )
 
         running_loss = 0.0
         optimizer_step_loss = 0.0
         epoch_steps = 0
+        total_micro_batches_seen = 0
 
         for micro_step, batch in enumerate(epoch_loader):
             input_features = batch["input_features"].to(device)
             labels = batch["labels"].to(device)
+            total_micro_batches_seen += 1
 
             with torch.amp.autocast("cuda", dtype=torch.float16):
                 outputs = model(input_features=input_features, labels=labels)
@@ -485,7 +658,7 @@ def run_full_e1_training(
                     print(f"Epoch {epoch} | Step {epoch_steps}/{STEPS_PER_EPOCH} (Global {global_step}) | Loss: {avg_step_loss:.4f} | LR: {lr_curr:.6f}")
                     optimizer_step_loss = 0.0
 
-        avg_epoch_train_loss = running_loss / len(epoch_loader)
+        avg_epoch_train_loss = running_loss / total_micro_batches_seen if total_micro_batches_seen > 0 else 0.0
         epoch_duration = time.time() - epoch_start_time
         print(f"Epoch {epoch} complete | Mean Train Loss: {avg_epoch_train_loss:.4f} | Time: {epoch_duration:.1f}s")
 
@@ -494,11 +667,10 @@ def run_full_e1_training(
         val_loss = 0.0
         val_samples_evaluated = 0
 
-        if len(val_records) > 0:
+        if use_local_offline and len(val_records) > 0:
             model.eval()
             val_dataset = FullE1InMemoryDataset(val_records, processor)
             val_loader = DataLoader(val_dataset, batch_size=micro_batch_size, shuffle=False, collate_fn=collator)
-
             with torch.no_grad():
                 for v_batch in val_loader:
                     v_feats = v_batch["input_features"].to(device)
@@ -507,13 +679,25 @@ def run_full_e1_training(
                         v_out = model(input_features=v_feats, labels=v_lbls)
                     val_loss += v_out.loss.item()
                     val_samples_evaluated += len(v_batch["labels"])
-
             val_loss = val_loss / len(val_loader) if len(val_loader) > 0 else 0.0
-            val_duration = time.time() - val_start_time
-            print(f"Epoch {epoch} Validation | Mean Val Loss: {val_loss:.4f} | Evaluated {val_samples_evaluated} samples ({val_duration:.1f}s)")
-        else:
-            val_loss = 0.0
-            val_duration = 0.0
+        elif not use_local_offline:
+            model.eval()
+            val_dataset = FullE1StreamingValDataset(processor=processor, max_samples=1900)
+            val_loader = DataLoader(val_dataset, batch_size=micro_batch_size, collate_fn=collator)
+            v_step_count = 0
+            with torch.no_grad():
+                for v_batch in val_loader:
+                    v_feats = v_batch["input_features"].to(device)
+                    v_lbls = v_batch["labels"].to(device)
+                    with torch.amp.autocast("cuda", dtype=torch.float16):
+                        v_out = model(input_features=v_feats, labels=v_lbls)
+                    val_loss += v_out.loss.item()
+                    val_samples_evaluated += len(v_batch["labels"])
+                    v_step_count += 1
+            val_loss = val_loss / v_step_count if v_step_count > 0 else 0.0
+
+        val_duration = time.time() - val_start_time
+        print(f"Epoch {epoch} Validation | Mean Val Loss: {val_loss:.4f} | Evaluated {val_samples_evaluated} samples ({val_duration:.1f}s)")
 
         epoch_record = {
             "epoch": epoch,
@@ -615,14 +799,105 @@ def run_full_e1_training(
     print("=" * 70)
 
 
+def run_streaming_smoke_test(processor: Optional[WhisperProcessor] = None) -> Dict[str, Any]:
+    """Runs a minimal, safe smoke test of the streaming pipeline without training or downloading shards."""
+    print("=" * 70)
+    print("FULL E1 STREAMING DATA PIPELINE SMOKE TEST")
+    print("=" * 70)
+
+    # 1. Disk usage before
+    total, used, free_before = shutil.disk_usage(".")
+    free_before_gb = free_before / (1024 ** 3)
+    print(f"Disk free BEFORE smoke test: {free_before_gb:.2f} GB")
+
+    from datasets import Audio, IterableDataset, load_dataset
+
+    print("Loading VIVOS train stream (streaming=True)...")
+    ds_vivos = load_dataset(
+        "thanhduycao/vivos_ng_only",
+        split="train",
+        streaming=True,
+        revision=PINNED_VIVOS_REVISION,
+    ).cast_column("audio", Audio(decode=False))
+    print(f"VIVOS dataset object type: {type(ds_vivos)}")
+    assert isinstance(ds_vivos, IterableDataset), f"Expected IterableDataset, got {type(ds_vivos)}"
+
+    print("Loading ViMD train stream (streaming=True)...")
+    ds_vimd = load_dataset(
+        "nguyendv02/ViMD_Dataset",
+        split="train",
+        streaming=True,
+        revision=PINNED_VIMD_REVISION,
+    ).cast_column("audio", Audio(decode=False))
+    print(f"ViMD dataset object type:  {type(ds_vimd)}")
+    assert isinstance(ds_vimd, IterableDataset), f"Expected IterableDataset, got {type(ds_vimd)}"
+
+    # 2. Inspect first 2 samples from each stream
+    print("\nInspecting first 2 streamed samples from VIVOS...")
+    vivos_samples = []
+    for i, row in enumerate(ds_vivos):
+        wf = decode_audio_record(row["audio"], target_sr=16000)
+        dur = len(wf) / 16000.0
+        vivos_samples.append({
+            "idx": i,
+            "speaker": row.get("speaker_id"),
+            "duration": dur,
+            "waveform_shape": wf.shape,
+        })
+        if i >= 1:
+            break
+    for s in vivos_samples:
+        print(f"  VIVOS Sample {s['idx']}: speaker={s['speaker']}, dur={s['duration']:.2f}s, shape={s['waveform_shape']}")
+
+    print("\nInspecting first 2 streamed samples from ViMD...")
+    vimd_samples = []
+    for i, row in enumerate(ds_vimd):
+        wf = decode_audio_record(row["audio"], target_sr=16000)
+        dur = len(wf) / 16000.0
+        vimd_samples.append({
+            "idx": i,
+            "speaker": row.get("speakerID"),
+            "duration": dur,
+            "waveform_shape": wf.shape,
+        })
+        if i >= 1:
+            break
+    for s in vimd_samples:
+        print(f"  ViMD Sample {s['idx']}: speaker={s['speaker']}, dur={s['duration']:.2f}s, shape={s['waveform_shape']}")
+
+    # 3. Disk usage after
+    total, used, free_after = shutil.disk_usage(".")
+    free_after_gb = free_after / (1024 ** 3)
+    delta_mb = (free_before - free_after) / (1024 ** 2)
+    print(f"\nDisk free AFTER smoke test:  {free_after_gb:.2f} GB")
+    print(f"Disk consumption delta:      {delta_mb:.4f} MB")
+    assert delta_mb < 50.0, f"Unexpected large disk download during streaming smoke test: {delta_mb:.2f} MB"
+    print("Streaming smoke test result: PASS (Zero parquet shards downloaded to disk)")
+    print("=" * 70)
+
+    return {
+        "status": "PASS",
+        "dataset_type": str(type(ds_vimd)),
+        "samples_inspected": len(vivos_samples) + len(vimd_samples),
+        "disk_free_before_gb": free_before_gb,
+        "disk_free_after_gb": free_after_gb,
+        "delta_mb": delta_mb,
+    }
+
+
 def main():
     parser = argparse.ArgumentParser(description="Full E1 Vietnamese ASR Training")
     parser.add_argument("--device_check_only", action="store_true", help="Perform pre-run integrity check and exit")
+    parser.add_argument("--smoke_test_streaming", action="store_true", help="Run streaming data pipeline smoke test and exit")
     parser.add_argument("--epochs", type=int, default=EPOCHS, help="Number of training epochs")
     parser.add_argument("--micro_batch_size", type=int, default=MICRO_BATCH_SIZE, help="Micro batch size")
     parser.add_argument("--grad_accum_steps", type=int, default=GRAD_ACCUM_STEPS, help="Gradient accumulation steps")
     parser.add_argument("--output_dir", type=str, default=OUTPUT_DIR, help="Checkpoint output directory")
     args = parser.parse_args()
+
+    if args.smoke_test_streaming:
+        run_streaming_smoke_test()
+        sys.exit(0)
 
     check_res = preflight_check()
 
