@@ -32,6 +32,7 @@ from services.asr_service import ASRService, PINNED_MODEL_REVISIONS
 from services.evaluation_service import EvaluationService
 from services.experiment_service import ExperimentService
 from services.export_service import ExportService
+from services.iterative_service import IterativeManipulationService
 from services.lora_service import FROZEN_FULL_E1_PROTOCOL, LoRAService
 from services.synthetic_service import SyntheticService
 
@@ -44,6 +45,7 @@ synthetic_service = SyntheticService(export_dir="exports/synthetic")
 evaluation_service = EvaluationService()
 experiment_service = ExperimentService(reports_dir="reports", checkpoints_dir="checkpoints")
 export_service = ExportService(base_export_dir="exports")
+iterative_service = IterativeManipulationService(asr_service=asr_service, base_export_dir="exports")
 aug_engine = AugmentationStudioEngine(sample_rate=16000)
 
 app_session_state: Dict[str, Any] = {
@@ -59,6 +61,8 @@ app_session_state: Dict[str, Any] = {
     "last_cer": None,
     "augmented_samples": [],
     "augmented_transcripts": [],
+    "iterative_records": [],
+    "iterative_audio_map": {},
     "last_exported_bundle": None,
 }
 
@@ -396,7 +400,113 @@ def handle_augmentation_generation(
 
 
 # ==============================================================================
-# TAB 3: EVALUATION HANDLERS
+# TAB 3: ITERATIVE AUDIO MANIPULATION HANDLERS
+# ==============================================================================
+def handle_iterative_manipulation(
+    audio_file,
+    k_val: int,
+    strategy: str,
+    cand_m: int,
+    master_seed: int,
+    ref_transcript: str,
+    enabled_ops: List[str],
+    progress=gr.Progress(),
+):
+    if audio_file is not None:
+        audio_16k, sr = load_audio(audio_file, target_sr=16000)
+    elif app_session_state.get("original_audio") is not None:
+        audio_16k = app_session_state["original_audio"]
+    else:
+        return (
+            "No audio provided. Upload an audio file or transcribe in Tab 1 first.",
+            pd.DataFrame(),
+            "No audio to evaluate.",
+            None, None, None, None, None, None,
+            render_dashboard_html(),
+        )
+
+    try:
+        records, audio_map, meta = iterative_service.execute_chain(
+            audio_16k=audio_16k,
+            k=int(k_val),
+            strategy=strategy,
+            base_seed=int(master_seed),
+            reference_transcript=ref_transcript if ref_transcript and ref_transcript.strip() else None,
+            candidates_per_step=int(cand_m),
+            enabled_operators=enabled_ops,
+            progress_callback=lambda p, msg: progress(p, desc=msg),
+        )
+
+        app_session_state["iterative_records"] = records
+        app_session_state["iterative_audio_map"] = audio_map
+
+        preview_paths = [None] * 6
+        for i in range(min(6, len(audio_map))):
+            if i in audio_map:
+                tmp = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
+                sf.write(tmp.name, audio_map[i], 16000, subtype="PCM_16")
+                preview_paths[i] = tmp.name
+
+        df_records = iterative_service.format_records_dataframe(records)
+
+        drift_lines = ["ASR Transcription Drift Comparison across Cumulative Chain:"]
+        for r in records:
+            stg = f"x_{r.iteration}" if r.iteration > 0 else "x_0 (Orig)"
+            drift_lines.append(f"[{stg}] ({r.manipulation_name}): \"{r.asr_raw_transcript}\"")
+        drift_text = "\n".join(drift_lines)
+
+        status_msg = (
+            f"Cumulative Chain Completed: {meta['k_steps']} steps executed under '{strategy}' strategy.\n"
+            f"Scoring Mode: {meta['score_mode']} | Successful Steps: {meta['successful_iterations']} | QC Failures: {meta['failed_iterations']}"
+        )
+
+        return (
+            status_msg,
+            df_records,
+            drift_text,
+            preview_paths[0],
+            preview_paths[1],
+            preview_paths[2],
+            preview_paths[3],
+            preview_paths[4],
+            preview_paths[5],
+            render_dashboard_html(),
+        )
+
+    except Exception as e:
+        return (
+            f"Iterative manipulation error: {str(e)}",
+            pd.DataFrame(),
+            f"Error: {str(e)}",
+            None, None, None, None, None, None,
+            render_dashboard_html(),
+        )
+
+
+def handle_export_iterative_bundle():
+    recs = app_session_state.get("iterative_records", [])
+    audio_map = app_session_state.get("iterative_audio_map", {})
+    if not recs or not audio_map:
+        return "No iterative manipulation chain exists in current session to export.", None
+
+    bundle = iterative_service.export_chain_bundle(
+        records=recs,
+        audio_map=audio_map,
+        original_audio_id="studio_iterative",
+    )
+    zip_size = os.path.getsize(bundle["zip_path"]) if os.path.exists(bundle["zip_path"]) else 0
+    msg = (
+        f"Iterative Manipulation Package Exported Successfully:\n"
+        f"- ZIP Archive: {bundle['zip_path']} ({zip_size:,} bytes)\n"
+        f"- JSON Metadata: {bundle['json_path']}\n"
+        f"- CSV Manifest: {bundle['csv_path']}\n"
+        f"- Audio WAVs: {len(audio_map)} files in {bundle['wav_dir']}"
+    )
+    return msg, bundle["zip_path"]
+
+
+# ==============================================================================
+# TAB 4: EVALUATION HANDLERS
 # ==============================================================================
 def handle_direct_evaluation(reference_text: str, hypothesis_text: str):
     """Run evaluation and enforce ground-truth reference requirement."""
@@ -833,9 +943,86 @@ def build_app():
                     prev_5 = gr.Audio(label="Variant 5", type="filepath", interactive=False)
 
             # ==================================================================
-            # TAB 3: EVALUATION
+            # TAB 3: ITERATIVE AUDIO MANIPULATION
             # ==================================================================
-            with gr.TabItem("3. Evaluation"):
+            with gr.TabItem("3. Iterative Manipulation"):
+                gr.Markdown("### Cumulative Iterative Audio Manipulation ($x_0 \\to x_1 \\to \\dots \\to x_K$)")
+                gr.Markdown("""
+                Applies compound, sequential transformations: **$x_i = T_i(x_{i-1})$** where all intermediate stages are preserved and evaluated.
+                - **Zero Speech Synthesis:** Strictly no TTS, no voice cloning, and no speaker alteration. Speech content is preserved from $x_0$.
+                - **Cumulative vs Independent:** Distinct from independent augmentation; each transformation directly compounds upon the previous state with 10-point QC verified at each step.
+                """)
+                with gr.Row():
+                    iter_audio_input = gr.Audio(
+                        sources=["upload", "microphone"],
+                        type="filepath",
+                        label="Input Audio (x_0) [Leave empty to use active transcribed audio from Tab 1]",
+                    )
+                    with gr.Column():
+                        iter_k_slider = gr.Slider(minimum=1, maximum=10, value=3, step=1, label="Number of Steps (K)")
+                        iter_strategy = gr.Radio(
+                            choices=[
+                                ("Random Iterative: x_i = T_i(x_{i-1})", "random"),
+                                ("Best-Preserving Search: argmax_M Score", "best_preserving"),
+                            ],
+                            value="best_preserving",
+                            label="Manipulation Strategy",
+                        )
+                        iter_candidates_slider = gr.Slider(minimum=2, maximum=6, value=3, step=1, label="Candidates per Step (M, for Best-Preserving)", visible=True)
+                        iter_seed = gr.Number(value=42, label="Master Random Seed", precision=0)
+
+                with gr.Row():
+                    iter_ref_input = gr.Textbox(
+                        label="Ground-Truth Reference Transcript (Optional)",
+                        placeholder="If provided, scores candidates by lowest WER/CER. If omitted, scores by ASR Consistency Proxy...",
+                        lines=2,
+                    )
+
+                with gr.Accordion("Select Allowed Transform Operators", open=False):
+                    iter_transforms_pool = gr.CheckboxGroup(
+                        choices=[
+                            ("Gain (±2.5 dB)", "gain"),
+                            ("Additive Noise (SNR 22-35 dB)", "additive_noise"),
+                            ("Time Shift (±0.05s)", "time_shift"),
+                            ("Time Stretch (0.96-1.04x)", "time_stretch"),
+                            ("Pitch Shift (±0.8 semitones)", "pitch_shift"),
+                            ("Synthetic Reverb (0.08-0.20s)", "synthetic_reverb"),
+                            ("Bandpass Filter (180-3800Hz)", "bandpass_filter"),
+                        ],
+                        value=["gain", "additive_noise", "time_shift", "synthetic_reverb", "bandpass_filter"],
+                        label="Allowed Operators Pool",
+                    )
+
+                iter_run_btn = gr.Button("Execute Cumulative Manipulation Chain", variant="primary", size="lg")
+                iter_status_text = gr.Textbox(label="Chain Execution Diagnostics", lines=2, interactive=False)
+
+                gr.Markdown("#### Cumulative Manipulation Chain & Lineage Table")
+                iter_table = gr.DataFrame(label="Step-by-Step Chain Records", interactive=False)
+
+                gr.Markdown("#### ASR Transcription Drift Tracking Across Chain")
+                iter_drift_text = gr.Textbox(label="ASR Hypotheses (x_0 ... x_K)", lines=5, interactive=False)
+
+                with gr.Accordion("Audio Players for Intermediate Stages (x_0 to x_5)", open=True):
+                    with gr.Row():
+                        iter_prev_0 = gr.Audio(label="x_0 (Original Source)", type="filepath", interactive=False)
+                        iter_prev_1 = gr.Audio(label="x_1 (Iteration 1)", type="filepath", interactive=False)
+                        iter_prev_2 = gr.Audio(label="x_2 (Iteration 2)", type="filepath", interactive=False)
+                    with gr.Row():
+                        iter_prev_3 = gr.Audio(label="x_3 (Iteration 3)", type="filepath", interactive=False)
+                        iter_prev_4 = gr.Audio(label="x_4 (Iteration 4)", type="filepath", interactive=False)
+                        iter_prev_5 = gr.Audio(label="x_5 (Iteration 5)", type="filepath", interactive=False)
+
+                gr.Markdown("---")
+                gr.Markdown("#### Export Cumulative Manipulation Package")
+                with gr.Row():
+                    iter_export_btn = gr.Button("Export Iterative Manipulation Bundle (ZIP, JSON, CSV, WAVs)", variant="secondary")
+                iter_export_status = gr.Textbox(label="Export Status", lines=3, interactive=False)
+                iter_download_zip = gr.File(label="Download Cumulative Chain ZIP")
+
+            # ==================================================================
+            # TAB 4: EVALUATION
+            # ==================================================================
+            with gr.TabItem("4. Evaluation"):
                 gr.Markdown("### Model Evaluation & Neutral Comparative Diagnostics")
                 gr.Markdown("Evaluates accuracy against ground-truth references. If references are missing, evaluations are strictly labeled as **PREDICTION DRIFT / CONSISTENCY**.")
                 with gr.Row():
@@ -854,9 +1041,9 @@ def build_app():
                 comp_output_box = gr.Textbox(label="Descriptive Delta Analysis", lines=4, interactive=False)
 
             # ==================================================================
-            # TAB 4: LoRA / MODEL ADAPTATION
+            # TAB 5: LoRA / MODEL ADAPTATION
             # ==================================================================
-            with gr.TabItem("4. LoRA Adaptation"):
+            with gr.TabItem("5. LoRA Adaptation"):
                 gr.Markdown("### Parameter-Efficient Fine-Tuning (PEFT) LoRA Management")
                 with gr.Accordion("7A. Dynamic Model Parameter Accounting", open=True):
                     gr.Markdown("Parameter counts computed dynamically from instantiated model (PhoWhisper-tiny + LoRA r=8):")
@@ -898,9 +1085,9 @@ def build_app():
                     safety_log_box = gr.Textbox(label="Gate Audit Diagnostics", lines=5, interactive=False)
 
             # ==================================================================
-            # TAB 5: SYNTHETIC AUDIO
+            # TAB 6: SYNTHETIC AUDIO
             # ==================================================================
-            with gr.TabItem("5. Synthetic Audio"):
+            with gr.TabItem("6. Synthetic Audio"):
                 gr.Markdown("### Gwen-TTS 0.6B Voice Synthesis & Provenance")
                 gr.Markdown("Generates 16 kHz mono speech using approved built-in reference voices (`spk_synth_01` .. `spk_synth_09`). Strictly prohibits cloning real human speakers.")
                 with gr.Row():
@@ -918,9 +1105,9 @@ def build_app():
                 provenance_table = gr.DataFrame(label="Synthetic Provenance Registry", interactive=False)
 
             # ==================================================================
-            # TAB 6: EXPERIMENT / RESULTS
+            # TAB 7: EXPERIMENT / RESULTS
             # ==================================================================
-            with gr.TabItem("6. Experiment Results"):
+            with gr.TabItem("7. Experiment Results"):
                 gr.Markdown("### Unified Research Experiment Registry")
                 gr.Markdown("Authoritative benchmark results across baseline and pilot experiments. Distinguishes between **PIPELINE PILOT** and **FULL BENCHMARK**.")
                 exp_results_df = gr.DataFrame(value=experiment_service.get_results_dataframe, label="Experiment Registry Table", interactive=False)
@@ -933,9 +1120,9 @@ def build_app():
                 curve_status = gr.Textbox(label="Curve Status", interactive=False)
 
             # ==================================================================
-            # TAB 7: EXPORT / REPORT
+            # TAB 8: EXPORT / REPORT
             # ==================================================================
-            with gr.TabItem("7. Export / Report"):
+            with gr.TabItem("8. Export / Report"):
                 gr.Markdown("### Application Numerical Reporting & Multi-Format Export")
                 with gr.Row():
                     report_exp_sel = gr.Dropdown(choices=["FULL_E1", "E1_PILOT", "E2_REAL_SYNTH_PILOT", "E0"], value="FULL_E1", label="Target Experiment")
@@ -960,9 +1147,9 @@ def build_app():
                 session_download_zip = gr.File(label="Download Session ZIP")
 
             # ==================================================================
-            # TAB 8: BATCH PROCESSING
+            # TAB 9: BATCH PROCESSING
             # ==================================================================
-            with gr.TabItem("8. Batch Processing"):
+            with gr.TabItem("9. Batch Processing"):
                 gr.Markdown("### Sequential Streaming Batch Audio Processing")
                 with gr.Row():
                     batch_files = gr.File(file_count="multiple", label="Upload Audio Files", file_types=["audio"])
@@ -975,9 +1162,9 @@ def build_app():
                 batch_csv_download = gr.File(label="Download Batch CSV")
 
             # ==================================================================
-            # TAB 9: DATASET PROVENANCE & SETTINGS
+            # TAB 10: DATASET PROVENANCE & SETTINGS
             # ==================================================================
-            with gr.TabItem("9. Governance & Settings"):
+            with gr.TabItem("10. Governance & Settings"):
                 gr.Markdown("### Vietnamese Speech Corpora Registry & Legal Governance")
                 gr.Markdown("""
                 > [!IMPORTANT]
@@ -1018,7 +1205,44 @@ def build_app():
             outputs=[aug_status_text, prev_1, prev_2, prev_3, prev_4, prev_5, results_table, dashboard_display],
         )
 
-        # Tab 3: Evaluation
+        # Tab 3: Iterative Manipulation
+        iter_strategy.change(
+            fn=lambda s: gr.update(visible=s == "best_preserving"),
+            inputs=[iter_strategy],
+            outputs=[iter_candidates_slider],
+        )
+
+        iter_run_btn.click(
+            fn=handle_iterative_manipulation,
+            inputs=[
+                iter_audio_input,
+                iter_k_slider,
+                iter_strategy,
+                iter_candidates_slider,
+                iter_seed,
+                iter_ref_input,
+                iter_transforms_pool,
+            ],
+            outputs=[
+                iter_status_text,
+                iter_table,
+                iter_drift_text,
+                iter_prev_0,
+                iter_prev_1,
+                iter_prev_2,
+                iter_prev_3,
+                iter_prev_4,
+                iter_prev_5,
+                dashboard_display,
+            ],
+        )
+
+        iter_export_btn.click(
+            fn=handle_export_iterative_bundle,
+            outputs=[iter_export_status, iter_download_zip],
+        )
+
+        # Tab 4: Evaluation
         eval_exec_btn.click(
             fn=handle_direct_evaluation,
             inputs=[eval_ref_input, eval_hyp_input],
@@ -1030,7 +1254,7 @@ def build_app():
             outputs=[comp_output_box],
         )
 
-        # Tab 4: LoRA
+        # Tab 5: LoRA
         attach_adapter_btn.click(
             fn=handle_attach_lora_adapter,
             inputs=[adapter_selector],
@@ -1045,7 +1269,7 @@ def build_app():
             outputs=[safety_log_box],
         )
 
-        # Tab 5: Synthetic Audio
+        # Tab 6: Synthetic Audio
         def generate_synth_wrapper(tx, v_label):
             v_id = voice_map_rev.get(v_label, "spk_synth_01")
             return handle_synthetic_generation(tx, v_id)
@@ -1056,14 +1280,14 @@ def build_app():
             outputs=[synth_status_box, synth_player, val_status_short, provenance_table, dashboard_display],
         )
 
-        # Tab 6: Curves
+        # Tab 7: Curves
         curve_load_btn.click(
             fn=handle_view_training_curves,
             inputs=[curve_exp_sel],
             outputs=[curve_table, curve_status],
         )
 
-        # Tab 7: Export
+        # Tab 8: Export
         export_exp_btn.click(
             fn=handle_export_experiment,
             inputs=[report_exp_sel],
@@ -1074,14 +1298,14 @@ def build_app():
             outputs=[session_export_summary, session_download_zip],
         )
 
-        # Tab 8: Batch
+        # Tab 9: Batch
         batch_run_btn.click(
             fn=handle_batch_transcription,
             inputs=[batch_files, batch_dec_strategy, batch_dec_beams],
             outputs=[batch_status_box, batch_results_table, batch_csv_download],
         )
 
-        # Tab 9: Governance & Settings
+        # Tab 10: Governance & Settings
         sim_run_btn.click(
             fn=handle_mixture_simulation,
             inputs=[sim_val_slider, sim_spk_disjoint],
