@@ -1,0 +1,86 @@
+{
+  "audit_metadata": {
+    "repository": "Vietnamese_ASR_Week6",
+    "git_head_commit": "7b1f2b7",
+    "date": "2026-09-27",
+    "audit_status": "APPLICATION OVERVIEW AUDIT: COMPLETE"
+  },
+  "executive_summary": {
+    "application_name": "Vietnamese Speech AI Studio",
+    "primary_purpose": "Production-grade Vietnamese ASR engineering and research platform",
+    "target_task": "Vietnamese speech recognition across dialects and acoustic environments",
+    "core_model": "vinai/PhoWhisper-tiny",
+    "pinned_revision": "cc51d32be916efebde04ff549854fa1741cb5c02",
+    "phase_2_status": "CLOSED",
+    "full_e1_status": "ABORTED ON LOCAL HOST / READY FOR CLOUD GPU EXECUTION"
+  },
+  "application_architecture": {
+    "ui_framework": "Gradio (10 functional tabs)",
+    "audio_validation_gate": "7-point input check (finite, mono, RMS >= 1e-5, peak <= 1.2, 0.2s <= duration <= 30.0s)",
+    "audio_preprocessing": "16 kHz mono float32 normalized in [-1.0, 1.0]",
+    "token_safety_clamp": "Clamped effective_max_new_tokens <= 443 against max_target_positions = 448",
+    "text_normalization": "Deterministic NFC Unicode, lowercasing, punctuation stripping, whitespace collapsing",
+    "augmentation_studio": "7 physical 1D waveform transforms (K in [1, 20])",
+    "quality_control": "10-point audio QC gate",
+    "iterative_manipulation": "Cumulative chain (x_0 -> x_1 ... -> x_K) with Best-Preserving search and zero TTS",
+    "batch_processing": "Sequential streaming multi-file transcription with per-file error isolation"
+  },
+  "authoritative_metrics": {
+    "total_tests": 61,
+    "tests_passed": 61,
+    "tests_failed": 0,
+    "e0_baseline_wer_pct": 18.93,
+    "e0_baseline_cer_pct": 11.07,
+    "e1_pilot_wer_pct": 19.21,
+    "e1_pilot_cer_pct": 12.16,
+    "e2_pilot_wer_pct": 19.21,
+    "e2_pilot_cer_pct": 12.16,
+    "e1_training_time_sec": 43.39,
+    "e2_training_time_sec": 48.86,
+    "synthetic_generated_count": 22,
+    "synthetic_qc_pass_rate_pct": 100.0,
+    "cuda_preflight_mean_step_sec": 0.942,
+    "cuda_preflight_throughput_samples_sec": 33.95,
+    "cuda_preflight_peak_vram_mb": 726.16,
+    "estimated_full_e1_duration_min": 39.3
+  },
+  "conflicts_identified": [
+    {
+      "dimension": "ViMD 9-Sample Dialect Metrics",
+      "source_a": "Prompt cited values (North WER ~21.57%, Central WER ~12.56%, South WER ~5.55%, Macro ~13.23%)",
+      "source_b": "Directly computed from raw batch CSV tmpcuf7htxu.csv & metadata.csv (North WER 28.40%, Central WER 12.56%, South WER 9.52%, Macro 16.83%)",
+      "status": "CONFLICT FOUND",
+      "resolution_note": "Documented both sources explicitly. Central region matches (WER 12.56%); North and South diverge due to text normalization differences in historical logs vs current exact Levenshtein code."
+    }
+  ],
+  "datasets": {
+    "vivos_training_ready": 11660,
+    "vimd_training_ready": 15011,
+    "total_training_ready": 26671,
+    "duration_exclusions_gt30s": 12,
+    "full_validation_count": 1900,
+    "frozen_gold_test_count": 9,
+    "frozen_test_manifest_sha256": "efe54856d12613f109cebc9482a6f224ca4e2370d0ff3f8a2fe4ea0a013b60ca"
+  },
+  "lora_parameters": {
+    "base_model": "vinai/PhoWhisper-tiny",
+    "total_parameters": 37908096,
+    "frozen_parameters": 37760640,
+    "trainable_parameters": 147456,
+    "trainable_ratio_pct": 0.3890,
+    "rank": 8,
+    "alpha": 16,
+    "dropout": 0.05,
+    "target_modules": ["q_proj", "v_proj"],
+    "bias": "none",
+    "peft_version": "0.21.0"
+  },
+  "exposure_policy": {
+    "effective_batch_size": 32,
+    "steps_per_epoch": 834,
+    "exposures_per_epoch": 26688,
+    "padding_remainder_per_epoch": 17,
+    "total_optimizer_steps_3_epochs": 2502,
+    "total_sample_exposures_3_epochs": 80064
+  }
+}
