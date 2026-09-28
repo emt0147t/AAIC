@@ -1,0 +1,261 @@
+warning: in the working copy of 'vietnamese_asr_app/app.py', LF will be replaced by CRLF the next time Git touches it
+[1mdiff --git a/vietnamese_asr_app/app.py b/vietnamese_asr_app/app.py[m
+[1mindex 1fbc61f..0192ad2 100644[m
+[1m--- a/vietnamese_asr_app/app.py[m
+[1m+++ b/vietnamese_asr_app/app.py[m
+[36m@@ -5,7 +5,8 @@[m [mphysically authentic waveform augmentation (7 transforms, 10-point QC),[m
+ Gwen-TTS 0.6B synthetic speech generation, rigorous provenance governance,[m
+ and numerical experiment benchmarking.[m
+ """[m
+[31m-[m
+[32m+[m[32mimport hashlib[m
+[32m+[m[32mimport soundfile as sf[m
+ import json[m
+ import os[m
+ import shutil[m
+[36m@@ -402,6 +403,42 @@[m [mdef handle_augmentation_generation([m
+ # ==============================================================================[m
+ # TAB 3: ITERATIVE AUDIO MANIPULATION HANDLERS[m
+ # ==============================================================================[m
+[32m+[m[32mdef format_iterative_stage_metadata([m
+[32m+[m[32m    stage_idx: int,[m
+[32m+[m[32m    audio: np.ndarray | None,[m
+[32m+[m[32m    wav_path: str | None,[m
+[32m+[m[32m    record=None,[m
+[32m+[m[32m) -> str:[m
+[32m+[m[32m    """Render auditable signal/file metadata for one iterative stage."""[m
+[32m+[m[32m    if audio is None or wav_path is None or not os.path.exists(wav_path):[m
+[32m+[m[32m        return f"**x_{stage_idx}** — No stage generated."[m
+[32m+[m
+[32m+[m[32m    audio32 = np.asarray(audio, dtype=np.float32)[m
+[32m+[m
+[32m+[m[32m    # Hash of the waveform represented as float32 samples.[m
+[32m+[m[32m    waveform_sha = hashlib.sha256(audio32.tobytes()).hexdigest()[m
+[32m+[m
+[32m+[m[32m    # Hash of the exact WAV file written for the Gradio player.[m
+[32m+[m[32m    with open(wav_path, "rb") as f:[m
+[32m+[m[32m        wav_sha = hashlib.sha256(f.read()).hexdigest()[m
+[32m+[m
+[32m+[m[32m    rms = float(np.sqrt(np.mean(np.square(audio32))))[m
+[32m+[m[32m    peak = float(np.max(np.abs(audio32)))[m
+[32m+[m
+[32m+[m[32m    changed = ([m
+[32m+[m[32m        "YES"[m
+[32m+[m[32m        if record is not None and record.waveform_changed[m
+[32m+[m[32m        else ("NO (Original)" if stage_idx == 0 else "NO")[m
+[32m+[m[32m    )[m
+[32m+[m
+[32m+[m[32m    return ([m
+[32m+[m[32m        f"**x_{stage_idx} diagnostics**\n\n"[m
+[32m+[m[32m        f"- **Waveform SHA-256:** `{waveform_sha}`\n"[m
+[32m+[m[32m        f"- **Preview WAV SHA-256:** `{wav_sha}`\n"[m
+[32m+[m[32m        f"- **RMS:** `{rms:.6f}`\n"[m
+[32m+[m[32m        f"- **Peak:** `{peak:.6f}`\n"[m
+[32m+[m[32m        f"- **Changed:** `{changed}`"[m
+[32m+[m[32m    )[m
+ def handle_iterative_manipulation([m
+     audio_file,[m
+     k_val: int,[m
+[36m@@ -421,7 +458,18 @@[m [mdef handle_iterative_manipulation([m
+             "No audio provided. Upload an audio file or transcribe in Tab 1 first.",[m
+             pd.DataFrame(),[m
+             "No audio to evaluate.",[m
+[31m-            None, None, None, None, None, None,[m
+[32m+[m[32m            None,[m
+[32m+[m[32m            "**x_0** — No stage generated.",[m
+[32m+[m[32m            None,[m
+[32m+[m[32m            "**x_1** — No stage generated.",[m
+[32m+[m[32m            None,[m
+[32m+[m[32m            "**x_2** — No stage generated.",[m
+[32m+[m[32m            None,[m
+[32m+[m[32m            "**x_3** — No stage generated.",[m
+[32m+[m[32m            None,[m
+[32m+[m[32m            "**x_4** — No stage generated.",[m
+[32m+[m[32m            None,[m
+[32m+[m[32m            "**x_5** — No stage generated.",[m
+             render_dashboard_html(),[m
+         )[m
+ [m
+[36m@@ -441,11 +489,42 @@[m [mdef handle_iterative_manipulation([m
+         app_session_state["iterative_audio_map"] = audio_map[m
+ [m
+         preview_paths = [None] * 6[m
+[31m-        for i in range(min(6, len(audio_map))):[m
+[31m-            if i in audio_map:[m
+[31m-                tmp = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)[m
+[31m-                sf.write(tmp.name, audio_map[i], 16000, subtype="PCM_16")[m
+[31m-                preview_paths[i] = tmp.name[m
+[32m+[m[32m        stage_metadata = ["No stage generated."] * 6[m
+[32m+[m
+[32m+[m[32m        preview_dir = tempfile.mkdtemp(prefix="studio_iter_preview_")[m
+[32m+[m
+[32m+[m[32m        record_by_iteration = {[m
+[32m+[m[32m            rec.iteration: rec[m
+[32m+[m[32m            for rec in records[m
+[32m+[m[32m        }[m
+[32m+[m
+[32m+[m[32m        for rec in records:[m
+[32m+[m[32m            if 0 <= rec.iteration <= 5 and rec.iteration in audio_map:[m
+[32m+[m[32m                w_path = os.path.join([m
+[32m+[m[32m                    preview_dir,[m
+[32m+[m[32m                    f"stage_{rec.iteration:02d}_{rec.filename}"[m
+[32m+[m[32m                )[m
+[32m+[m
+[32m+[m[32m                stage_audio = np.asarray([m
+[32m+[m[32m                    audio_map[rec.iteration],[m
+[32m+[m[32m                    dtype=np.float32[m
+[32m+[m[32m                )[m
+[32m+[m
+[32m+[m[32m                sf.write([m
+[32m+[m[32m                    w_path,[m
+[32m+[m[32m                    stage_audio,[m
+[32m+[m[32m                    16000,[m
+[32m+[m[32m                    subtype="PCM_16"[m
+[32m+[m[32m                )[m
+[32m+[m
+[32m+[m[32m                preview_paths[rec.iteration] = w_path[m
+[32m+[m
+[32m+[m[32m                stage_metadata[rec.iteration] = format_iterative_stage_metadata([m
+[32m+[m[32m                    stage_idx=rec.iteration,[m
+[32m+[m[32m                    audio=stage_audio,[m
+[32m+[m[32m                    wav_path=w_path,[m
+[32m+[m[32m                    record=record_by_iteration.get(rec.iteration),[m
+[32m+[m[32m                )[m
+ [m
+         df_records = iterative_service.format_records_dataframe(records)[m
+ [m
+[36m@@ -465,11 +544,17 @@[m [mdef handle_iterative_manipulation([m
+             df_records,[m
+             drift_text,[m
+             preview_paths[0],[m
+[32m+[m[32m            stage_metadata[0],[m
+             preview_paths[1],[m
+[32m+[m[32m            stage_metadata[1],[m
+             preview_paths[2],[m
+[32m+[m[32m            stage_metadata[2],[m
+             preview_paths[3],[m
+[32m+[m[32m            stage_metadata[3],[m
+             preview_paths[4],[m
+[32m+[m[32m            stage_metadata[4],[m
+             preview_paths[5],[m
+[32m+[m[32m            stage_metadata[5],[m
+             render_dashboard_html(),[m
+         )[m
+ [m
+[36m@@ -478,7 +563,18 @@[m [mdef handle_iterative_manipulation([m
+             f"Iterative manipulation error: {str(e)}",[m
+             pd.DataFrame(),[m
+             f"Error: {str(e)}",[m
+[31m-            None, None, None, None, None, None,[m
+[32m+[m[32m            None,[m
+[32m+[m[32m            "**x_0** — Error.",[m
+[32m+[m[32m            None,[m
+[32m+[m[32m            "**x_1** — Error.",[m
+[32m+[m[32m            None,[m
+[32m+[m[32m            "**x_2** — Error.",[m
+[32m+[m[32m            None,[m
+[32m+[m[32m            "**x_3** — Error.",[m
+[32m+[m[32m            None,[m
+[32m+[m[32m            "**x_4** — Error.",[m
+[32m+[m[32m            None,[m
+[32m+[m[32m            "**x_5** — Error.",[m
+             render_dashboard_html(),[m
+         )[m
+ [m
+[36m@@ -1002,15 +1098,71 @@[m [mdef build_app():[m
+                 gr.Markdown("#### ASR Transcription Drift Tracking Across Chain")[m
+                 iter_drift_text = gr.Textbox(label="ASR Hypotheses (x_0 ... x_K)", lines=5, interactive=False)[m
+ [m
+[31m-                with gr.Accordion("Audio Players for Intermediate Stages (x_0 to x_5)", open=True):[m
+[32m+[m[32m                with gr.Accordion([m
+[32m+[m[32m                    "Audio Players for Intermediate Stages (x_0 to x_5)",[m
+[32m+[m[32m                    open=True,[m
+[32m+[m[32m                ):[m
+                     with gr.Row():[m
+[31m-                        iter_prev_0 = gr.Audio(label="x_0 (Original Source)", type="filepath", interactive=False)[m
+[31m-                        iter_prev_1 = gr.Audio(label="x_1 (Iteration 1)", type="filepath", interactive=False)[m
+[31m-                        iter_prev_2 = gr.Audio(label="x_2 (Iteration 2)", type="filepath", interactive=False)[m
+[32m+[m[32m                        with gr.Column():[m
+[32m+[m[32m                            iter_prev_0 = gr.Audio([m
+[32m+[m[32m                                label="x_0 (Original Source)",[m
+[32m+[m[32m                                type="filepath",[m
+[32m+[m[32m                                interactive=False,[m
+[32m+[m[32m                            )[m
+[32m+[m[32m                            iter_meta_0 = gr.Markdown([m
+[32m+[m[32m                                value="No stage generated."[m
+[32m+[m[32m                            )[m
+[32m+[m
+[32m+[m[32m                        with gr.Column():[m
+[32m+[m[32m                            iter_prev_1 = gr.Audio([m
+[32m+[m[32m                                label="x_1 (Iteration 1)",[m
+[32m+[m[32m                                type="filepath",[m
+[32m+[m[32m                                interactive=False,[m
+[32m+[m[32m                            )[m
+[32m+[m[32m                            iter_meta_1 = gr.Markdown([m
+[32m+[m[32m                                value="No stage generated."[m
+[32m+[m[32m                            )[m
+[32m+[m
+[32m+[m[32m                        with gr.Column():[m
+[32m+[m[32m                            iter_prev_2 = gr.Audio([m
+[32m+[m[32m                                label="x_2 (Iteration 2)",[m
+[32m+[m[32m                                type="filepath",[m
+[32m+[m[32m                                interactive=False,[m
+[32m+[m[32m                            )[m
+[32m+[m[32m                            iter_meta_2 = gr.Markdown([m
+[32m+[m[32m                                value="No stage generated."[m
+[32m+[m[32m                            )[m
+[32m+[m
+                     with gr.Row():[m
+[31m-                        iter_prev_3 = gr.Audio(label="x_3 (Iteration 3)", type="filepath", interactive=False)[m
+[31m-                        iter_prev_4 = gr.Audio(label="x_4 (Iteration 4)", type="filepath", interactive=False)[m
+[31m-                        iter_prev_5 = gr.Audio(label="x_5 (Iteration 5)", type="filepath", interactive=False)[m
+[32m+[m[32m                        with gr.Column():[m
+[32m+[m[32m                            iter_prev_3 = gr.Audio([m
+[32m+[m[32m                                label="x_3 (Iteration 3)",[m
+[32m+[m[32m                                type="filepath",[m
+[32m+[m[32m                                interactive=False,[m
+[32m+[m[32m                            )[m
+[32m+[m[32m                            iter_meta_3 = gr.Markdown([m
+[32m+[m[32m                                value="No stage generated."[m
+[32m+[m[32m                            )[m
+[32m+[m
+[32m+[m[32m                        with gr.Column():[m
+[32m+[m[32m                            iter_prev_4 = gr.Audio([m
+[32m+[m[32m                                label="x_4 (Iteration 4)",[m
+[32m+[m[32m                                type="filepath",[m
+[32m+[m[32m                                interactive=False,[m
+[32m+[m[32m                            )[m
+[32m+[m[32m                            iter_meta_4 = gr.Markdown([m
+[32m+[m[32m                                value="No stage generated."[m
+[32m+[m[32m                            )[m
+[32m+[m
+[32m+[m[32m                        with gr.Column():[m
+[32m+[m[32m                            iter_prev_5 = gr.Audio([m
+[32m+[m[32m                                label="x_5 (Iteration 5)",[m
+[32m+[m[32m                                type="filepath",[m
+[32m+[m[32m                                interactive=False,[m
+[32m+[m[32m                            )[m
+[32m+[m[32m                            iter_meta_5 = gr.Markdown([m
+[32m+[m[32m                                value="No stage generated."[m
+[32m+[m[32m                            )[m
+ [m
+                 gr.Markdown("---")[m
+                 gr.Markdown("#### Export Cumulative Manipulation Package")[m
+[36m@@ -1228,11 +1380,17 @@[m [mdef build_app():[m
+                 iter_table,[m
+                 iter_drift_text,[m
+                 iter_prev_0,[m
+[32m+[m[32m                iter_meta_0,[m
+                 iter_prev_1,[m
+[32m+[m[32m                iter_meta_1,[m
+                 iter_prev_2,[m
+[32m+[m[32m                iter_meta_2,[m
+                 iter_prev_3,[m
+[32m+[m[32m                iter_meta_3,[m
+                 iter_prev_4,[m
+[32m+[m[32m                iter_meta_4,[m
+                 iter_prev_5,[m
+[32m+[m[32m                iter_meta_5,[m
+                 dashboard_display,[m
+             ],[m
+         )[m

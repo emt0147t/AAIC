@@ -209,14 +209,20 @@ class ASRInferenceEngine:
             for chunk_data in chunks:
                 if len(chunk_data) == 0:
                     continue
-                input_features = self._processor.feature_extractor(
+                feat_dict = self._processor.feature_extractor(
                     chunk_data,
                     sampling_rate=16000,
+                    return_attention_mask=True,
                     return_tensors="pt",
-                ).input_features
-                input_features = input_features.to(self._hw.device, dtype=target_dtype)
+                )
+                input_features = feat_dict.input_features.to(self._hw.device, dtype=target_dtype)
+                attention_mask = feat_dict.attention_mask.to(self._hw.device) if "attention_mask" in feat_dict else None
 
-                predicted_ids = self._model.generate(input_features, **gen_kwargs)
+                gen_call_kwargs = dict(gen_kwargs)
+                if attention_mask is not None:
+                    gen_call_kwargs["attention_mask"] = attention_mask
+
+                predicted_ids = self._model.generate(input_features, **gen_call_kwargs)
                 text = self._processor.batch_decode(predicted_ids, skip_special_tokens=True)[0]
                 chunk_transcriptions.append(text.strip())
 

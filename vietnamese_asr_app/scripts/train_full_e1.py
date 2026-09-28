@@ -189,6 +189,20 @@ def build_epoch_exposure_indices(epoch: int, n_samples: int = 26671, base_seed: 
     return epoch_sequence
 
 
+def find_test_manifest_path(path: str = "manifests/test_manifest.csv") -> str:
+    """Locates the test manifest whether executed from repo root or app root."""
+    if os.path.exists(path):
+        return path
+    candidates = [
+        os.path.join(os.path.dirname(__file__), "..", path),
+        os.path.join("vietnamese_asr_app", path),
+    ]
+    for c in candidates:
+        if os.path.exists(c):
+            return os.path.abspath(c)
+    return path
+
+
 def preflight_check(test_manifest_path: str = "manifests/test_manifest.csv") -> Dict[str, Any]:
     print("=" * 70)
     print("FULL E1 PRE-TRAINING INTEGRITY PRECHECK")
@@ -198,6 +212,7 @@ def preflight_check(test_manifest_path: str = "manifests/test_manifest.csv") -> 
     free_disk_gb = check_disk_safety(MIN_FREE_DISK_GB)
 
     # 1. Check test manifest hash (Platform-independent canonical CRLF normalization)
+    test_manifest_path = find_test_manifest_path(test_manifest_path)
     if not os.path.exists(test_manifest_path):
         raise FileNotFoundError(f"Test manifest missing: {test_manifest_path}")
     raw_bytes = open(test_manifest_path, "rb").read()
@@ -279,6 +294,155 @@ def decode_audio_record(audio_dict: Dict[str, Any], target_sr: int = 16000) -> n
         return sig.astype(np.float32)
 
     raise ValueError("Audio dictionary contains neither 'array' nor 'bytes'.")
+
+
+FROZEN_TEST_VIMD_MAPPING: Dict[str, Dict[str, str]] = {
+    "vimd_test_vimd_01": {"vimd_filename": "11_0307.wav", "speaker_id": "spk_11_0142"},
+    "vimd_test_vimd_02": {"vimd_filename": "11_0308.wav", "speaker_id": "spk_11_0143"},
+    "vimd_test_vimd_03": {"vimd_filename": "11_0313.wav", "speaker_id": "spk_11_0144"},
+    "vimd_test_vimd_04": {"vimd_filename": "36_0233.wav", "speaker_id": "spk_36_0147"},
+    "vimd_test_vimd_05": {"vimd_filename": "36_0278.wav", "speaker_id": "spk_36_0171"},
+    "vimd_test_vimd_06": {"vimd_filename": "36_0282.wav", "speaker_id": "spk_36_0173"},
+    "vimd_test_vimd_07": {"vimd_filename": "59_0281.wav", "speaker_id": "spk_59_0244"},
+    "vimd_test_vimd_08": {"vimd_filename": "59_0290.wav", "speaker_id": "spk_59_0251"},
+    "vimd_test_vimd_09": {"vimd_filename": "59_0291.wav", "speaker_id": "spk_59_0252"},
+}
+
+
+def resolve_frozen_test_samples(
+    test_manifest_path: str = "manifests/test_manifest.csv",
+    vimd_revision: str = PINNED_VIMD_REVISION,
+    force_streaming: bool = False,
+) -> List[Dict[str, Any]]:
+    """Resolves and loads the 9 frozen ViMD test samples with 16kHz audio waveforms in memory.
+
+    Portability guarantee:
+    - On Linux/Colab runtimes where local Windows 'D:\\...' paths do not exist (or when
+      force_streaming=True), streams the exact matching records from the pinned ViMD test split.
+    - Decodes waveforms on-the-fly directly in memory at 16 kHz without writing temporary audio files.
+    - Matches and validates speaker IDs, transcripts, and sample IDs against the frozen gold manifest.
+    - Returns sample records with {"audio": np.ndarray, "transcript": str, "sample_id": str}
+      ensuring research/evaluator.py::evaluate_model_on_manifest() executes without skipping.
+    """
+    test_manifest_path = find_test_manifest_path(test_manifest_path)
+    if not os.path.exists(test_manifest_path):
+        raise FileNotFoundError(f"Test manifest missing: {test_manifest_path}")
+
+    # Re-verify canonical hash to ensure gold test manifest is never altered
+    test_raw_bytes = open(test_manifest_path, "rb").read()
+    canonical_hash = compute_canonical_crlf_sha256(test_raw_bytes)
+    if canonical_hash != FROZEN_TEST_SHA256:
+        raise ValueError(
+            f"CRITICAL: Test manifest content altered prior to resolution!\n"
+            f"Expected Canonical SHA-256: {FROZEN_TEST_SHA256}\n"
+            f"Got Canonical SHA-256:      {canonical_hash}"
+        )
+
+    df_test = pd.read_csv(test_manifest_path)
+    if len(df_test) != 9:
+        raise ValueError(f"CRITICAL: Expected exactly 9 test manifest rows, got {len(df_test)}")
+    if len(df_test["sample_id"].unique()) != 9:
+        raise ValueError("CRITICAL: Duplicate sample_id detected in test manifest!")
+
+    manifest_lookup: Dict[str, Dict[str, Any]] = {}
+    for _, r in df_test.iterrows():
+        sid = str(r["sample_id"])
+        manifest_lookup[sid] = {
+            "sample_id": sid,
+            "speaker_id": str(r["speaker_id"]),
+            "transcript": str(r["transcript"]),
+            "audio_path": str(r.get("audio_path", "")),
+            "duration_sec": float(r.get("duration_sec", 0.0)),
+        }
+
+    resolved: Dict[str, Dict[str, Any]] = {}
+
+    # Check if all local physical audio files exist on the host filesystem
+    all_local_exist = all(
+        os.path.exists(m["audio_path"]) and os.path.getsize(m["audio_path"]) > 0
+        for m in manifest_lookup.values()
+    )
+
+    if all_local_exist and not force_streaming:
+        print("[Frozen Test Resolution] Loading 9 test waveforms from verified local physical paths...")
+        for sid, m in manifest_lookup.items():
+            wf, sr = load_audio(m["audio_path"], target_sr=16000)
+            assert isinstance(wf, np.ndarray) and wf.ndim == 1 and len(wf) > 0, f"Invalid audio array for {sid}"
+            resolved[sid] = {
+                "sample_id": sid,
+                "audio": wf,
+                "transcript": m["transcript"],
+                "speaker_id": m["speaker_id"],
+                "duration_sec": float(len(wf)) / 16000.0,
+            }
+    else:
+        print(f"[Frozen Test Resolution] Resolving 9 test waveforms from pinned ViMD test stream (rev: {vimd_revision})...")
+        from datasets import Audio, load_dataset
+
+        filename_to_sid = {v["vimd_filename"]: k for k, v in FROZEN_TEST_VIMD_MAPPING.items()}
+        ds_test = load_dataset(
+            "nguyendv02/ViMD_Dataset",
+            split="test",
+            streaming=True,
+            revision=vimd_revision,
+        ).cast_column("audio", Audio(decode=False))
+
+        for row in ds_test:
+            fn = row.get("filename")
+            if fn in filename_to_sid:
+                sid = filename_to_sid[fn]
+                m = manifest_lookup[sid]
+
+                # Validate speaker ID
+                row_spk = row.get("speakerID") or row.get("speaker_id")
+                if row_spk != m["speaker_id"]:
+                    raise ValueError(
+                        f"CRITICAL: Speaker ID mismatch for {sid}! Streamed: {row_spk}, Manifest: {m['speaker_id']}"
+                    )
+
+                # Validate transcript content
+                norm_stream = normalize_vietnamese_text(row.get("text") or row.get("transcript") or "")
+                norm_manifest = normalize_vietnamese_text(m["transcript"])
+                if norm_stream != norm_manifest:
+                    raise ValueError(
+                        f"CRITICAL: Transcript mismatch for {sid}!\n"
+                        f"Streamed: {norm_stream}\n"
+                        f"Manifest: {norm_manifest}"
+                    )
+
+                # Decode audio in memory at 16 kHz
+                wf = decode_audio_record(row["audio"], target_sr=16000)
+                assert isinstance(wf, np.ndarray) and wf.ndim == 1 and len(wf) > 0, f"Invalid audio array for {sid}"
+
+                resolved[sid] = {
+                    "sample_id": sid,
+                    "audio": wf,
+                    "transcript": m["transcript"],
+                    "speaker_id": m["speaker_id"],
+                    "duration_sec": float(len(wf)) / 16000.0,
+                }
+
+                if len(resolved) == 9:
+                    break
+
+    # Hard assertions before returning to evaluator
+    if len(resolved) != 9:
+        missing = set(manifest_lookup.keys()) - set(resolved.keys())
+        raise RuntimeError(
+            f"CRITICAL: Failed to resolve all 9 frozen test samples! "
+            f"Resolved {len(resolved)}/9. Missing sample IDs: {missing}"
+        )
+
+    # Return exactly ordered matching the manifest row order
+    ordered_samples = [resolved[str(r["sample_id"])] for _, r in df_test.iterrows()]
+    assert len(ordered_samples) == 9
+    for s in ordered_samples:
+        assert "audio" in s and isinstance(s["audio"], np.ndarray), f"Sample {s['sample_id']} missing audio array!"
+        assert "transcript" in s and len(s["transcript"]) > 0, f"Sample {s['sample_id']} missing transcript!"
+        assert "sample_id" in s, "Sample missing sample_id!"
+
+    print(f"[Frozen Test Resolution] Successfully resolved and validated all {len(ordered_samples)} frozen test samples.")
+    return ordered_samples
 
 
 class FullE1InMemoryDataset(Dataset):
@@ -753,21 +917,22 @@ def run_full_e1_training(
     test_canonical_hash = compute_canonical_crlf_sha256(test_raw_bytes)
     assert test_canonical_hash == FROZEN_TEST_SHA256, "CRITICAL: Test manifest altered prior to evaluation!"
 
-    df_test = pd.read_csv(test_manifest_path)
-    test_sample_dicts = []
-    for _, r in df_test.iterrows():
-        test_sample_dicts.append({
-            "audio_path": r.get("audio_path", ""),
-            "transcript": str(r.get("transcript", "")),
-            "sample_id": str(r.get("sample_id", "")),
-        })
+    # Resolve frozen test samples with in-memory 16kHz waveforms
+    test_samples = resolve_frozen_test_samples(
+        test_manifest_path=test_manifest_path,
+        vimd_revision=PINNED_VIMD_REVISION,
+    )
+    assert len(test_samples) == 9, f"CRITICAL: Expected exactly 9 resolved test samples, got {len(test_samples)}"
 
     model.eval()
     test_report = evaluate_model_on_manifest(
         model=model,
         processor=processor,
-        samples=test_sample_dicts,
+        samples=test_samples,
         device="cuda",
+    )
+    assert test_report.total_samples == 9, (
+        f"CRITICAL: Evaluator evaluated {test_report.total_samples} samples, expected 9!"
     )
     print(test_report.summary())
 
@@ -889,6 +1054,7 @@ def main():
     parser = argparse.ArgumentParser(description="Full E1 Vietnamese ASR Training")
     parser.add_argument("--device_check_only", action="store_true", help="Perform pre-run integrity check and exit")
     parser.add_argument("--smoke_test_streaming", action="store_true", help="Run streaming data pipeline smoke test and exit")
+    parser.add_argument("--check_test_resolution", action="store_true", help="Verify resolving all 9 frozen test samples and exit")
     parser.add_argument("--epochs", type=int, default=EPOCHS, help="Number of training epochs")
     parser.add_argument("--micro_batch_size", type=int, default=MICRO_BATCH_SIZE, help="Micro batch size")
     parser.add_argument("--grad_accum_steps", type=int, default=GRAD_ACCUM_STEPS, help="Gradient accumulation steps")
@@ -897,6 +1063,12 @@ def main():
 
     if args.smoke_test_streaming:
         run_streaming_smoke_test()
+        sys.exit(0)
+
+    if args.check_test_resolution:
+        samples = resolve_frozen_test_samples(force_streaming=True)
+        assert len(samples) == 9, f"Expected 9 samples, got {len(samples)}"
+        print(f"Verified resolution of {len(samples)} frozen test samples in streaming mode.")
         sys.exit(0)
 
     check_res = preflight_check()

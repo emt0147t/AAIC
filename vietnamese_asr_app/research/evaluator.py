@@ -88,6 +88,8 @@ def evaluate_model_on_manifest(
     with torch.inference_mode():
         for idx, sample in enumerate(samples):
             audio_data = sample.get("audio")
+            if audio_data is None:
+                audio_data = sample.get("audio_path")
             ref_raw = str(sample.get("reference") or sample.get("transcript") or "")
 
             if isinstance(audio_data, (str, bytes)):

@@ -21,8 +21,13 @@ def apply_gain(audio: np.ndarray, gain_db: float) -> np.ndarray:
     out = audio * factor
     peak = np.max(np.abs(out)) if out.size > 0 else 0.0
     if peak > 0.99:
-        # Scale back gently to prevent harsh square-wave clipping
-        out = (out / peak) * 0.98
+        # Soft-limiting tanh saturation to preserve harmonic transformation without clipping
+        # and prevent degenerate identity collapse when applying positive gain to near-peak audio
+        tanh_peak = np.tanh(peak)
+        if tanh_peak > 1e-7:
+            out = (np.tanh(out) / tanh_peak) * 0.98
+        else:
+            out = np.clip(out, -0.98, 0.98)
     return out.astype(np.float32)
 
 
@@ -56,7 +61,11 @@ def apply_additive_noise(
     # Safe normalization if peak exceeds 0.99
     peak = np.max(np.abs(out)) if out.size > 0 else 0.0
     if peak > 0.99:
-        out = (out / peak) * 0.98
+        tanh_peak = np.tanh(peak)
+        if tanh_peak > 1e-7:
+            out = (np.tanh(out) / tanh_peak) * 0.98
+        else:
+            out = np.clip(out, -0.98, 0.98)
     return out.astype(np.float32)
 
 
@@ -172,7 +181,11 @@ def apply_synthetic_reverb(
 
     peak = np.max(np.abs(out)) if out.size > 0 else 0.0
     if peak > 0.99:
-        out = (out / peak) * 0.98
+        tanh_peak = np.tanh(peak)
+        if tanh_peak > 1e-7:
+            out = (np.tanh(out) / tanh_peak) * 0.98
+        else:
+            out = np.clip(out, -0.98, 0.98)
     return out.astype(np.float32)
 
 
@@ -214,5 +227,9 @@ def apply_frequency_filter(
     filtered = signal.sosfiltfilt(sos, audio)
     peak = np.max(np.abs(filtered)) if filtered.size > 0 else 0.0
     if peak > 0.99:
-        filtered = (filtered / peak) * 0.98
+        tanh_peak = np.tanh(peak)
+        if tanh_peak > 1e-7:
+            filtered = (np.tanh(filtered) / tanh_peak) * 0.98
+        else:
+            filtered = np.clip(filtered, -0.98, 0.98)
     return filtered.astype(np.float32)

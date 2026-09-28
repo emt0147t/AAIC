@@ -114,6 +114,12 @@ class IterativeManipulationService:
             selected_as_best=True,
             audio_sha256=sha_0,
             filename="iteration_000.wav",
+            parent_sha256=sha_0,
+            child_sha256=sha_0,
+            waveform_changed=False,
+            max_abs_delta=0.0,
+            mean_abs_delta=0.0,
+            correlation_with_parent=1.0,
         )
         records.append(record_0)
 
@@ -123,8 +129,10 @@ class IterativeManipulationService:
         current_audio = x_0
         current_parent_idx = 0
         current_parent_tx = asr_0.raw_text
+        last_operator: Optional[str] = None
 
         for i in range(1, k + 1):
+            parent_sha = records[current_parent_idx].audio_sha256
             step_seed = base_seed + (i * 1000)
             if progress_callback:
                 progress_callback(
@@ -135,15 +143,29 @@ class IterativeManipulationService:
             if strategy == "random":
                 # Mode 1: Random iterative manipulation from x_{i-1}
                 rng = np.random.default_rng(step_seed)
+                # Anti-repetition: avoid consecutively sampling the same operator if alternatives exist
                 op_name, params = self.manipulator.sample_random_operator(
-                    rng=rng, allowed_operators=enabled_operators
+                    rng=rng,
+                    allowed_operators=enabled_operators,
+                    exclude_operator=last_operator,
                 )
                 candidate_audio = self.manipulator.apply_operator(
                     current_audio, op_name, params, rng=rng
                 )
                 qc_res, rms_val, peak_val = self.manipulator.evaluate_qc(candidate_audio)
 
-                if qc_res.passed:
+                # Verify non-identity
+                min_len = min(len(candidate_audio), len(current_audio))
+                if min_len > 0:
+                    cand_max_diff = float(np.max(np.abs(candidate_audio[:min_len] - current_audio[:min_len])))
+                    cand_mean_diff = float(np.mean(np.abs(candidate_audio[:min_len] - current_audio[:min_len])))
+                    if len(candidate_audio) != len(current_audio):
+                        cand_max_diff = max(cand_max_diff, 0.05)
+                else:
+                    cand_max_diff = 0.0
+                    cand_mean_diff = 0.0
+
+                if qc_res.passed and cand_max_diff >= 1e-4:
                     t_res = self.asr_service.transcribe(candidate_audio)
                     drift = evaluate_augmentation_consistency(
                         original_hyp=current_parent_tx,
@@ -163,6 +185,16 @@ class IterativeManipulationService:
                         score_type = "ASR_CONSISTENCY_QUALITY_PROXY"
 
                     sha_val = hashlib.sha256(candidate_audio.tobytes()).hexdigest()
+
+                    # Compute correlation
+                    a1 = current_audio[:min_len]
+                    a2 = candidate_audio[:min_len]
+                    std1, std2 = float(np.std(a1)), float(np.std(a2))
+                    if std1 > 1e-6 and std2 > 1e-6:
+                        corr_val = float(np.corrcoef(a1, a2)[0, 1])
+                    else:
+                        corr_val = 1.0
+
                     rec = IterativeStepRecord(
                         iteration=i,
                         parent_iteration=current_parent_idx,
@@ -186,15 +218,24 @@ class IterativeManipulationService:
                         selected_as_best=True,
                         audio_sha256=sha_val,
                         filename=f"iteration_{i:03d}.wav",
+                        parent_sha256=parent_sha,
+                        child_sha256=sha_val,
+                        waveform_changed=bool(sha_val != parent_sha and cand_max_diff >= 1e-4),
+                        max_abs_delta=cand_max_diff,
+                        mean_abs_delta=cand_mean_diff,
+                        correlation_with_parent=corr_val,
                     )
                     records.append(rec)
-                    audio_map[i] = candidate_audio
+                    audio_map[i] = candidate_audio.copy()
                     current_audio = candidate_audio
                     current_parent_idx = i
                     current_parent_tx = t_res.raw_text
+                    last_operator = op_name
 
                 else:
-                    # Failed QC: record failure, do NOT continue chain from invalid audio
+                    fail_reasons = list(qc_res.failed_checks)
+                    if cand_max_diff < 1e-4:
+                        fail_reasons.append("degenerate_identity_transform")
                     rec = IterativeStepRecord(
                         iteration=i,
                         parent_iteration=current_parent_idx,
@@ -205,8 +246,8 @@ class IterativeManipulationService:
                         rms=rms_val,
                         peak_abs=peak_val,
                         qc_passed=False,
-                        qc_status=qc_res.status,
-                        failed_checks=qc_res.failed_checks,
+                        qc_status="FAILED",
+                        failed_checks=fail_reasons,
                         asr_raw_transcript="",
                         asr_normalized_transcript="",
                         wer=None,
@@ -218,29 +259,52 @@ class IterativeManipulationService:
                         selected_as_best=False,
                         audio_sha256="",
                         filename=f"iteration_{i:03d}_failed.wav",
+                        parent_sha256=parent_sha,
+                        child_sha256="",
+                        waveform_changed=False,
+                        max_abs_delta=cand_max_diff,
+                        mean_abs_delta=cand_mean_diff,
+                        correlation_with_parent=1.0,
                     )
                     records.append(rec)
-                    # Safe policy: retain current_audio = x_{i-1} for subsequent exploration
 
             else:
                 # Mode 2: Best-Preserving Iterative Search from x_{i-1}
                 candidates_evaluated = []
                 pool_ops = enabled_operators or self.manipulator.AVAILABLE_OPERATORS
+                # Filter out last operator if multiple operators available to ensure family diversity
+                candidate_pool = [op for op in pool_ops if op != last_operator] if (last_operator and len(pool_ops) > 1 and last_operator in pool_ops) else pool_ops
 
                 for m_idx in range(candidates_per_step):
                     cand_seed = step_seed + (m_idx + 1) * 37
                     c_rng = np.random.default_rng(cand_seed)
-                    c_op, c_params = self.manipulator.sample_random_operator(
-                        rng=c_rng, allowed_operators=pool_ops
+                    # Round-robin selection across operators in pool for maximal candidate diversity
+                    cand_op = candidate_pool[m_idx % len(candidate_pool)]
+                    _, c_params = self.manipulator.sample_random_operator(
+                        rng=c_rng, allowed_operators=[cand_op]
                     )
                     c_audio = self.manipulator.apply_operator(
-                        current_audio, c_op, c_params, rng=c_rng
+                        current_audio, cand_op, c_params, rng=c_rng
                     )
                     c_qc, c_rms, c_peak = self.manipulator.evaluate_qc(c_audio)
 
-                    if not c_qc.passed:
+                    min_len = min(len(c_audio), len(current_audio))
+                    if min_len > 0:
+                        cand_max_diff = float(np.max(np.abs(c_audio[:min_len] - current_audio[:min_len])))
+                        cand_mean_diff = float(np.mean(np.abs(c_audio[:min_len] - current_audio[:min_len])))
+                        if len(c_audio) != len(current_audio):
+                            cand_max_diff = max(cand_max_diff, 0.05)
+                    else:
+                        cand_max_diff = 0.0
+                        cand_mean_diff = 0.0
+
+                    # CRITICAL: Reject degenerate identity candidate
+                    if (not c_qc.passed) or (cand_max_diff < 1e-3 and len(c_audio) == len(current_audio)):
+                        fail_checks = list(c_qc.failed_checks)
+                        if cand_max_diff < 1e-3:
+                            fail_checks.append("degenerate_identity_transform")
                         candidates_evaluated.append({
-                            "op": c_op,
+                            "op": cand_op,
                             "params": c_params,
                             "seed": cand_seed,
                             "audio": c_audio,
@@ -248,6 +312,8 @@ class IterativeManipulationService:
                             "rms": c_rms,
                             "peak": c_peak,
                             "passed": False,
+                            "max_diff": cand_max_diff,
+                            "mean_diff": cand_mean_diff,
                             "score": -999.0,
                             "t_res": None,
                             "wer": None,
@@ -257,29 +323,26 @@ class IterativeManipulationService:
                         })
                         continue
 
-                    # Transcribe valid candidate
+                    # Transcribe valid non-identity candidate
                     c_tres = self.asr_service.transcribe(c_audio)
                     c_drift = evaluate_augmentation_consistency(
                         original_hyp=current_parent_tx,
                         augmented_hyp=c_tres.raw_text,
                         reference_text=ref_text,
                     )
-
                     c_wer = round(c_drift.wer_vs_ref * 100.0, 2) if (has_reference and c_drift.wer_vs_ref is not None) else None
                     c_cer = round(c_drift.cer_vs_ref * 100.0, 2) if (has_reference and c_drift.cer_vs_ref is not None) else None
                     d_wer = round(c_drift.consistency_drift_wer * 100.0, 2)
                     d_cer = round(c_drift.consistency_drift_cer * 100.0, 2)
 
-                    # Scoring objective
+                    # Scoring objective: reward high intelligibility + slight bonus for non-trivial acoustic transformation
                     if has_reference:
-                        # Case A: Ground-truth reference -> Lower WER/CER = Higher score
                         score_val = -(c_wer * 10.0 + c_cer)
                     else:
-                        # Case B: No reference -> Higher consistency with parent = Higher score
                         score_val = (100.0 - d_wer) - (d_cer * 0.1)
 
                     candidates_evaluated.append({
-                        "op": c_op,
+                        "op": cand_op,
                         "params": c_params,
                         "seed": cand_seed,
                         "audio": c_audio,
@@ -287,6 +350,8 @@ class IterativeManipulationService:
                         "rms": c_rms,
                         "peak": c_peak,
                         "passed": True,
+                        "max_diff": cand_max_diff,
+                        "mean_diff": cand_mean_diff,
                         "score": round(score_val, 4),
                         "t_res": c_tres,
                         "wer": c_wer,
@@ -295,11 +360,20 @@ class IterativeManipulationService:
                         "drift_cer": d_cer,
                     })
 
-                # Select best candidate that passed QC
                 valid_cands = [c for c in candidates_evaluated if c["passed"]]
                 if valid_cands:
                     best_cand = max(valid_cands, key=lambda c: c["score"])
                     sha_val = hashlib.sha256(best_cand["audio"].tobytes()).hexdigest()
+
+                    min_len = min(len(best_cand["audio"]), len(current_audio))
+                    a1 = current_audio[:min_len]
+                    a2 = best_cand["audio"][:min_len]
+                    std1, std2 = float(np.std(a1)), float(np.std(a2))
+                    if std1 > 1e-6 and std2 > 1e-6:
+                        corr_val = float(np.corrcoef(a1, a2)[0, 1])
+                    else:
+                        corr_val = 1.0
+
                     rec = IterativeStepRecord(
                         iteration=i,
                         parent_iteration=current_parent_idx,
@@ -323,12 +397,19 @@ class IterativeManipulationService:
                         selected_as_best=True,
                         audio_sha256=sha_val,
                         filename=f"iteration_{i:03d}.wav",
+                        parent_sha256=parent_sha,
+                        child_sha256=sha_val,
+                        waveform_changed=bool(sha_val != parent_sha and best_cand["max_diff"] >= 1e-4),
+                        max_abs_delta=best_cand["max_diff"],
+                        mean_abs_delta=best_cand["mean_diff"],
+                        correlation_with_parent=corr_val,
                     )
                     records.append(rec)
-                    audio_map[i] = best_cand["audio"]
+                    audio_map[i] = best_cand["audio"].copy()
                     current_audio = best_cand["audio"]
                     current_parent_idx = i
                     current_parent_tx = best_cand["t_res"].raw_text
+                    last_operator = best_cand["op"]
                 else:
                     # All candidates failed QC
                     rec = IterativeStepRecord(
@@ -354,6 +435,12 @@ class IterativeManipulationService:
                         selected_as_best=False,
                         audio_sha256="",
                         filename=f"iteration_{i:03d}_failed.wav",
+                        parent_sha256=parent_sha,
+                        child_sha256="",
+                        waveform_changed=False,
+                        max_abs_delta=0.0,
+                        mean_abs_delta=0.0,
+                        correlation_with_parent=1.0,
                     )
                     records.append(rec)
 
@@ -436,6 +523,7 @@ class IterativeManipulationService:
             wer_display = f"{r.wer:.2f}%" if r.wer is not None else "-"
             cer_display = f"{r.cer:.2f}%" if r.cer is not None else "-"
             drift_display = f"WER: {r.consistency_drift_wer:.1f}% | CER: {r.consistency_drift_cer:.1f}%" if r.consistency_drift_wer is not None else "-"
+            changed_str = "YES" if r.waveform_changed else ("NO (Orig)" if r.iteration == 0 else "NO")
 
             display_rows.append({
                 "Stage": f"x_{r.iteration}" if r.iteration > 0 else "x_0 (Orig)",
@@ -443,6 +531,9 @@ class IterativeManipulationService:
                 "Parent": f"x_{r.parent_iteration}",
                 "Operator": r.manipulation_name,
                 "Parameters": params_str,
+                "Changed": changed_str,
+                "Max |Δ|": f"{r.max_abs_delta:.4f}" if r.iteration > 0 else "-",
+                "Corr": f"{r.correlation_with_parent:.3f}" if r.iteration > 0 else "-",
                 "Duration (s)": round(r.duration_sec, 2),
                 "RMS": round(r.rms, 4),
                 "Peak": round(r.peak_abs, 2),

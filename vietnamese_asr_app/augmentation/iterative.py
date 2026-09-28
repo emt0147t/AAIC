@@ -50,6 +50,12 @@ class IterativeStepRecord:
     selected_as_best: bool
     audio_sha256: str
     filename: str
+    parent_sha256: str = ""
+    child_sha256: str = ""
+    waveform_changed: bool = True
+    max_abs_delta: float = 0.0
+    mean_abs_delta: float = 0.0
+    correlation_with_parent: float = 1.0
 
     def to_dict(self) -> Dict[str, Any]:
         d = asdict(self)
@@ -65,6 +71,9 @@ class IterativeStepRecord:
         if self.consistency_drift_cer is not None:
             d["consistency_drift_cer"] = round(self.consistency_drift_cer, 2)
         d["score"] = round(self.score, 4)
+        d["max_abs_delta"] = round(float(self.max_abs_delta), 6)
+        d["mean_abs_delta"] = round(float(self.mean_abs_delta), 6)
+        d["correlation_with_parent"] = round(float(self.correlation_with_parent), 4)
         return d
 
 
@@ -74,9 +83,9 @@ class IterativeAudioManipulator:
     # Conservative, safe bounds per single iteration to prevent runaway degradation
     OPERATOR_PARAM_BOUNDS = {
         "gain": {"gain_db_range": (-2.5, 2.5)},
-        "additive_noise": {"snr_db_range": (22.0, 35.0)},
+        "additive_noise": {"snr_db_range": (20.0, 32.0)},
         "time_shift": {"shift_sec_range": (-0.05, 0.05)},
-        "time_stretch": {"rate_range": (0.96, 1.04)},
+        "time_stretch": {"rate_range": (0.95, 1.05)},
         "pitch_shift": {"n_steps_range": (-0.8, 0.8)},
         "synthetic_reverb": {"decay_sec_range": (0.08, 0.20), "wet_mix_range": (0.08, 0.20)},
         "bandpass_filter": {"low_cut_range": (180.0, 320.0), "high_cut_range": (3300.0, 3800.0)},
@@ -157,23 +166,38 @@ class IterativeAudioManipulator:
         self,
         rng: np.random.Generator,
         allowed_operators: Optional[List[str]] = None,
+        exclude_operator: Optional[str] = None,
     ) -> Tuple[str, Dict[str, Any]]:
         """Sample a valid operator and conservative bounded parameters deterministically."""
-        pool = allowed_operators or self.AVAILABLE_OPERATORS
+        base_pool = allowed_operators or self.AVAILABLE_OPERATORS
+        pool = [op for op in base_pool if op != exclude_operator] if (exclude_operator and len(base_pool) > 1 and exclude_operator in base_pool) else base_pool
+
         op_name = str(rng.choice(pool))
         bounds = self.OPERATOR_PARAM_BOUNDS[op_name]
         params: Dict[str, Any] = {}
 
         if op_name == "gain":
-            params["gain_db"] = round(float(rng.uniform(*bounds["gain_db_range"])), 2)
+            # Ensure non-trivial gain magnitude (|gain_db| >= 0.6)
+            sign = float(rng.choice([-1.0, 1.0]))
+            val = float(rng.uniform(0.6, 2.5))
+            params["gain_db"] = round(sign * val, 2)
         elif op_name == "additive_noise":
             params["snr_db"] = round(float(rng.uniform(*bounds["snr_db_range"])), 1)
         elif op_name == "time_shift":
-            params["shift_sec"] = round(float(rng.uniform(*bounds["shift_sec_range"])), 3)
+            # Ensure non-trivial shift (|shift_sec| >= 0.010 = 160 samples)
+            sign = float(rng.choice([-1.0, 1.0]))
+            val = float(rng.uniform(0.010, 0.045))
+            params["shift_sec"] = round(sign * val, 3)
         elif op_name == "time_stretch":
-            params["rate"] = round(float(rng.uniform(*bounds["rate_range"])), 3)
+            # Ensure rate != 1.0
+            sign = float(rng.choice([-1.0, 1.0]))
+            delta = float(rng.uniform(0.03, 0.05))
+            params["rate"] = round(1.0 + sign * delta, 3)
         elif op_name == "pitch_shift":
-            params["n_steps"] = round(float(rng.uniform(*bounds["n_steps_range"])), 2)
+            # Ensure non-trivial pitch shift (|n_steps| >= 0.3)
+            sign = float(rng.choice([-1.0, 1.0]))
+            val = float(rng.uniform(0.3, 0.8))
+            params["n_steps"] = round(sign * val, 2)
         elif op_name == "synthetic_reverb":
             params["decay_sec"] = round(float(rng.uniform(*bounds["decay_sec_range"])), 3)
             params["wet_mix"] = round(float(rng.uniform(*bounds["wet_mix_range"])), 3)

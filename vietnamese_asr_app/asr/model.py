@@ -94,8 +94,10 @@ class ASRModelManager:
         dtype = torch.float16 if hw.device.startswith("cuda") else torch.float32
         model = WhisperForConditionalGeneration.from_pretrained(
             model_id,
-            torch_dtype=dtype,
+            dtype=dtype,
         )
+        if hasattr(model, "generation_config") and model.generation_config is not None:
+            model.generation_config.forced_decoder_ids = None
         model.to(hw.device)
         model.eval()
 

@@ -229,3 +229,68 @@ def test_export_chain_artifacts(clean_synthetic_voice_audio, temp_export_dir):
     assert os.path.exists(os.path.join(export_bundle["wav_dir"], "iteration_000.wav"))
     assert os.path.exists(os.path.join(export_bundle["wav_dir"], "iteration_001.wav"))
     assert os.path.exists(os.path.join(export_bundle["wav_dir"], "iteration_002.wav"))
+
+
+def test_regression_audio2_and_audio3_distinct(clean_synthetic_voice_audio, temp_export_dir):
+    """REGRESSION TEST: Specifically detects and prevents the bug where Audio 3 (x2)
+    was identical to Audio 2 (x1) under Best-Preserving Search.
+    """
+    service = IterativeManipulationService(base_export_dir=temp_export_dir)
+    records, audio_map, meta = service.execute_chain(
+        clean_synthetic_voice_audio,
+        k=3,
+        strategy="best_preserving",
+        candidates_per_step=3,
+        base_seed=42,
+    )
+    assert len(records) == 4
+    assert 0 in audio_map and 1 in audio_map and 2 in audio_map and 3 in audio_map
+
+    # Assert Audio 2 (x1) differs from Audio 1 (x0)
+    diff_0_1 = float(np.max(np.abs(audio_map[1] - audio_map[0])))
+    assert diff_0_1 > 1e-3, f"x_1 must genuinely differ from x_0: got {diff_0_1}"
+
+    # Assert Audio 3 (x2) strictly differs from Audio 2 (x1)
+    diff_1_2 = float(np.max(np.abs(audio_map[2] - audio_map[1])))
+    assert diff_1_2 > 1e-3, f"x_2 must genuinely differ from x_1 (Audio 3 != Audio 2 bug): got {diff_1_2}"
+
+    # Assert Audio 4 (x3) strictly differs from Audio 3 (x2)
+    diff_2_3 = float(np.max(np.abs(audio_map[3] - audio_map[2])))
+    assert diff_2_3 > 1e-3, f"x_3 must genuinely differ from x_2: got {diff_2_3}"
+
+    # Verify explicit lineage records
+    for i in range(1, 4):
+        rec = records[i]
+        assert rec.waveform_changed is True
+        assert rec.parent_sha256 == records[i - 1].child_sha256
+        assert rec.child_sha256 != rec.parent_sha256
+        assert rec.max_abs_delta > 1e-4
+
+
+def test_gain_on_peak_normalized_audio_does_not_collapse_to_identity():
+    """Verify that applying positive gain to peak-normalized audio applies soft saturation
+    instead of algebraically collapsing to an identity no-op.
+    """
+    from augmentation.transforms import apply_gain
+    audio = np.array([0.98, -0.98, 0.49, -0.49, 0.1, 0.0], dtype=np.float32)
+    out = apply_gain(audio, gain_db=2.0)
+    delta = float(np.max(np.abs(out - audio)))
+    assert delta > 0.05, f"Gain on peak-normalized audio must alter waveform, delta={delta}"
+    assert np.max(np.abs(out)) <= 0.99
+    assert np.all(np.isfinite(out))
+
+
+def test_random_chain_consecutive_operator_diversity(clean_synthetic_voice_audio, temp_export_dir):
+    """Verify that consecutive iterations avoid trivial repetition of the same operator family."""
+    service = IterativeManipulationService(base_export_dir=temp_export_dir)
+    records, _, _ = service.execute_chain(
+        clean_synthetic_voice_audio,
+        k=4,
+        strategy="random",
+        base_seed=123,
+    )
+    # Check that adjacent steps do not repeat operator if multiple are enabled
+    for i in range(2, len(records)):
+        prev_op = records[i - 1].manipulation_name
+        curr_op = records[i].manipulation_name
+        assert prev_op != curr_op, f"Step {i} ({curr_op}) should differ from step {i-1} ({prev_op})"

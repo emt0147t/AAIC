@@ -5,7 +5,6 @@ physically authentic waveform augmentation (7 transforms, 10-point QC),
 Gwen-TTS 0.6B synthetic speech generation, rigorous provenance governance,
 and numerical experiment benchmarking.
 """
-import hashlib
 import soundfile as sf
 import json
 import os
@@ -403,42 +402,6 @@ def handle_augmentation_generation(
 # ==============================================================================
 # TAB 3: ITERATIVE AUDIO MANIPULATION HANDLERS
 # ==============================================================================
-def format_iterative_stage_metadata(
-    stage_idx: int,
-    audio: np.ndarray | None,
-    wav_path: str | None,
-    record=None,
-) -> str:
-    """Render auditable signal/file metadata for one iterative stage."""
-    if audio is None or wav_path is None or not os.path.exists(wav_path):
-        return f"**x_{stage_idx}** — No stage generated."
-
-    audio32 = np.asarray(audio, dtype=np.float32)
-
-    # Hash of the waveform represented as float32 samples.
-    waveform_sha = hashlib.sha256(audio32.tobytes()).hexdigest()
-
-    # Hash of the exact WAV file written for the Gradio player.
-    with open(wav_path, "rb") as f:
-        wav_sha = hashlib.sha256(f.read()).hexdigest()
-
-    rms = float(np.sqrt(np.mean(np.square(audio32))))
-    peak = float(np.max(np.abs(audio32)))
-
-    changed = (
-        "YES"
-        if record is not None and record.waveform_changed
-        else ("NO (Original)" if stage_idx == 0 else "NO")
-    )
-
-    return (
-        f"**x_{stage_idx} diagnostics**\n\n"
-        f"- **Waveform SHA-256:** `{waveform_sha}`\n"
-        f"- **Preview WAV SHA-256:** `{wav_sha}`\n"
-        f"- **RMS:** `{rms:.6f}`\n"
-        f"- **Peak:** `{peak:.6f}`\n"
-        f"- **Changed:** `{changed}`"
-    )
 def handle_iterative_manipulation(
     audio_file,
     k_val: int,
@@ -458,18 +421,7 @@ def handle_iterative_manipulation(
             "No audio provided. Upload an audio file or transcribe in Tab 1 first.",
             pd.DataFrame(),
             "No audio to evaluate.",
-            None,
-            "**x_0** — No stage generated.",
-            None,
-            "**x_1** — No stage generated.",
-            None,
-            "**x_2** — No stage generated.",
-            None,
-            "**x_3** — No stage generated.",
-            None,
-            "**x_4** — No stage generated.",
-            None,
-            "**x_5** — No stage generated.",
+            None, None, None, None, None, None,
             render_dashboard_html(),
         )
 
@@ -489,42 +441,12 @@ def handle_iterative_manipulation(
         app_session_state["iterative_audio_map"] = audio_map
 
         preview_paths = [None] * 6
-        stage_metadata = ["No stage generated."] * 6
-
         preview_dir = tempfile.mkdtemp(prefix="studio_iter_preview_")
-
-        record_by_iteration = {
-            rec.iteration: rec
-            for rec in records
-        }
-
         for rec in records:
             if 0 <= rec.iteration <= 5 and rec.iteration in audio_map:
-                w_path = os.path.join(
-                    preview_dir,
-                    f"stage_{rec.iteration:02d}_{rec.filename}"
-                )
-
-                stage_audio = np.asarray(
-                    audio_map[rec.iteration],
-                    dtype=np.float32
-                )
-
-                sf.write(
-                    w_path,
-                    stage_audio,
-                    16000,
-                    subtype="PCM_16"
-                )
-
+                w_path = os.path.join(preview_dir, f"stage_{rec.iteration:02d}_{rec.filename}")
+                sf.write(w_path, audio_map[rec.iteration], 16000, subtype="PCM_16")
                 preview_paths[rec.iteration] = w_path
-
-                stage_metadata[rec.iteration] = format_iterative_stage_metadata(
-                    stage_idx=rec.iteration,
-                    audio=stage_audio,
-                    wav_path=w_path,
-                    record=record_by_iteration.get(rec.iteration),
-                )
 
         df_records = iterative_service.format_records_dataframe(records)
 
@@ -544,17 +466,11 @@ def handle_iterative_manipulation(
             df_records,
             drift_text,
             preview_paths[0],
-            stage_metadata[0],
             preview_paths[1],
-            stage_metadata[1],
             preview_paths[2],
-            stage_metadata[2],
             preview_paths[3],
-            stage_metadata[3],
             preview_paths[4],
-            stage_metadata[4],
             preview_paths[5],
-            stage_metadata[5],
             render_dashboard_html(),
         )
 
@@ -563,18 +479,7 @@ def handle_iterative_manipulation(
             f"Iterative manipulation error: {str(e)}",
             pd.DataFrame(),
             f"Error: {str(e)}",
-            None,
-            "**x_0** — Error.",
-            None,
-            "**x_1** — Error.",
-            None,
-            "**x_2** — Error.",
-            None,
-            "**x_3** — Error.",
-            None,
-            "**x_4** — Error.",
-            None,
-            "**x_5** — Error.",
+            None, None, None, None, None, None,
             render_dashboard_html(),
         )
 
@@ -1098,71 +1003,15 @@ def build_app():
                 gr.Markdown("#### ASR Transcription Drift Tracking Across Chain")
                 iter_drift_text = gr.Textbox(label="ASR Hypotheses (x_0 ... x_K)", lines=5, interactive=False)
 
-                with gr.Accordion(
-                    "Audio Players for Intermediate Stages (x_0 to x_5)",
-                    open=True,
-                ):
+                with gr.Accordion("Audio Players for Intermediate Stages (x_0 to x_5)", open=True):
                     with gr.Row():
-                        with gr.Column():
-                            iter_prev_0 = gr.Audio(
-                                label="x_0 (Original Source)",
-                                type="filepath",
-                                interactive=False,
-                            )
-                            iter_meta_0 = gr.Markdown(
-                                value="No stage generated."
-                            )
-
-                        with gr.Column():
-                            iter_prev_1 = gr.Audio(
-                                label="x_1 (Iteration 1)",
-                                type="filepath",
-                                interactive=False,
-                            )
-                            iter_meta_1 = gr.Markdown(
-                                value="No stage generated."
-                            )
-
-                        with gr.Column():
-                            iter_prev_2 = gr.Audio(
-                                label="x_2 (Iteration 2)",
-                                type="filepath",
-                                interactive=False,
-                            )
-                            iter_meta_2 = gr.Markdown(
-                                value="No stage generated."
-                            )
-
+                        iter_prev_0 = gr.Audio(label="x_0 (Original Source)", type="filepath", interactive=False)
+                        iter_prev_1 = gr.Audio(label="x_1 (Iteration 1)", type="filepath", interactive=False)
+                        iter_prev_2 = gr.Audio(label="x_2 (Iteration 2)", type="filepath", interactive=False)
                     with gr.Row():
-                        with gr.Column():
-                            iter_prev_3 = gr.Audio(
-                                label="x_3 (Iteration 3)",
-                                type="filepath",
-                                interactive=False,
-                            )
-                            iter_meta_3 = gr.Markdown(
-                                value="No stage generated."
-                            )
-
-                        with gr.Column():
-                            iter_prev_4 = gr.Audio(
-                                label="x_4 (Iteration 4)",
-                                type="filepath",
-                                interactive=False,
-                            )
-                            iter_meta_4 = gr.Markdown(
-                                value="No stage generated."
-                            )
-
-                        with gr.Column():
-                            iter_prev_5 = gr.Audio(
-                                label="x_5 (Iteration 5)",
-                                type="filepath",
-                                interactive=False,
-                            )
-                            iter_meta_5 = gr.Markdown(
-                                value="No stage generated."
-                            )
+                        iter_prev_3 = gr.Audio(label="x_3 (Iteration 3)", type="filepath", interactive=False)
+                        iter_prev_4 = gr.Audio(label="x_4 (Iteration 4)", type="filepath", interactive=False)
+                        iter_prev_5 = gr.Audio(label="x_5 (Iteration 5)", type="filepath", interactive=False)
 
                 gr.Markdown("---")
                 gr.Markdown("#### Export Cumulative Manipulation Package")
@@ -1380,17 +1229,11 @@ def build_app():
                 iter_table,
                 iter_drift_text,
                 iter_prev_0,
-                iter_meta_0,
                 iter_prev_1,
-                iter_meta_1,
                 iter_prev_2,
-                iter_meta_2,
                 iter_prev_3,
-                iter_meta_3,
                 iter_prev_4,
-                iter_meta_4,
                 iter_prev_5,
-                iter_meta_5,
                 dashboard_display,
             ],
         )
